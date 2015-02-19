@@ -31,6 +31,8 @@ def write_config():
     environment = {k.split("=")[0]:k.split("=")[1] for k in insp.get("Config").get("Env") }
     vhost = environment.get("VHOST")
     ssl = environment.get("SSL")
+    redirect = environment.get("REDIRECT_FROM")
+
     if not vhost:
         continue
     port = environment.get("VPORT")
@@ -43,10 +45,14 @@ def write_config():
     backends += "\n\nbackend {name}_cluster\n    server node1 {ip}:{port}\n".format(name=name,ip=ip, port=port)
 
     if ssl:
-      certs = "crt " + ssl + " "
+      certs = certs + "crt " + ssl + " "
       https_frontends += "    use_backend {name}_cluster if {{ ssl_fc_sni {vhost} }}\n".format(name=name, vhost=vhost)
       if environment.get("HTTPS_ONLY"):
         backends += "    redirect scheme https if !{ ssl_fc }\n"    
+      logging.info('using SSL with cert {cert}'.format(cert=ssl))
+
+    if redirect:
+      frontends += "    acl redirect_host_{name} hdr(host) -i {redirect}\n    redirect code 301 prefix http://{vhost} if redirect_host_{name}\n".format(name=name,vhost=vhost,redirect=redirect)
 
   with open('/etc/haproxy/haproxy.cfg', 'w') as out:
       for line in open('./haproxy-override/haproxy.in.cfg'):
