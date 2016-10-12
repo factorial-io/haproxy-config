@@ -69,8 +69,8 @@ def write_config():
           else:
               out.write(line)
   logging.info('Restarting haproxy container')
-  os.system("haproxy -f /etc/haproxy/haproxy.cfg -p /var/run/haproxy.pid -sf $(cat /var/run/haproxy.pid)")
-
+  #os.system("haproxy -f /etc/haproxy/haproxy.cfg -p /var/run/haproxy.pid -sf $(cat /var/run/haproxy.pid)")
+  os.system("service haproxy reload")
 class MyEventHandler(FileSystemEventHandler):
   def on_created(self, event):
     assert event.src_path == "/tmp/haproxy"
