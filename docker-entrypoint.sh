@@ -1,0 +1,18 @@
+#!/bin/sh
+set -e
+
+echo "starting haproxy_config"
+cd /usr/local/haproxy_config/ && ./haproxy_config.py &
+
+# first arg is `-f` or `--some-option`
+if [ "${1#-}" != "$1" ]; then
+	set -- haproxy "$@"
+fi
+
+if [ "$1" = 'haproxy' ]; then
+	# if the user wants "haproxy", let's use "haproxy-systemd-wrapper" instead so we can have proper reloadability implemented by upstream
+	shift # "haproxy"
+	set -- "$(which haproxy-systemd-wrapper)" -p /run/haproxy.pid "$@"
+fi
+
+exec "$@"

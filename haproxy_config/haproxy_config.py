@@ -1,17 +1,16 @@
 #!./venv/bin/python
 
-import docker
 import logging
+import docker
 import re
 import os
 import time
 
 from watchdog.observers import Observer
-from watchdog.events import FileSystemEventHandler, EVENT_TYPE_CREATED
+from watchdog.events import FileSystemEventHandler, EVENT_TYPE_CREATED, EVENT_TYPE_MODIFIED
 
 def get_docker_client():
-    return docker.Client(base_url='unix://var/run/docker.sock', version='1.12',
-timeout=20)
+    return docker.Client(base_url='unix://var/run/docker.sock', version='1.12', timeout=20)
 
 
 def write_config():
@@ -19,7 +18,7 @@ def write_config():
   backends = ""
   certs = ""
   https_frontends = ""
- 
+
   dockerclient = get_docker_client()
   pattern = re.compile('[\W]+')
 
@@ -38,7 +37,7 @@ def write_config():
     port = environment.get("VPORT")
     if not port:
         port = 80
-  
+
     logging.info('found {name} with ip {ip}, using {vhost}:{port} as hostname.'.format(name=name, ip=ip, vhost=vhost, port=port))
 
     frontends += "    acl host_{name} hdr(host) -i {vhost}\n    use_backend {name}_cluster if host_{name}\n".format(name=name,vhost=vhost)
@@ -48,13 +47,13 @@ def write_config():
       certs = certs + "crt " + ssl + " "
       https_frontends += "    use_backend {name}_cluster if {{ ssl_fc_sni {vhost} }}\n".format(name=name, vhost=vhost)
       if environment.get("HTTPS_ONLY"):
-        backends += "    redirect scheme https if !{ ssl_fc }\n"    
+        backends += "    redirect scheme https if !{ ssl_fc }\n"
       logging.info('using SSL with cert {cert}'.format(cert=ssl))
 
     if redirect:
       frontends += "    acl redirect_host_{name} hdr(host) -i {redirect}\n    redirect code 301 prefix http://{vhost} if redirect_host_{name}\n".format(name=name,vhost=vhost,redirect=redirect)
 
-  with open('/etc/haproxy/haproxy.cfg', 'w') as out:
+  with open('/usr/local/etc/haproxy/haproxy.cfg', 'w+') as out:
       for line in open('./haproxy-override/haproxy.in.cfg'):
           if line.strip() == "###FRONTENDS###":
               out.write(frontends)
@@ -69,29 +68,30 @@ def write_config():
           else:
               out.write(line)
   logging.info('Restarting haproxy container')
-  #os.system("haproxy -f /etc/haproxy/haproxy.cfg -p /var/run/haproxy.pid -sf $(cat /var/run/haproxy.pid)")
-  os.system("service haproxy reload")
+  #os.system("haproxy -f /usr/local/etc/haproxy/haproxy.cfg -p /run/haproxy.pid -sf $(cat /run/haproxy.pid)")
+  os.system("kill -s HUP $(pidof haproxy-systemd-wrapper)");
+  #os.system("service haproxy reload")
+
 class MyEventHandler(FileSystemEventHandler):
   def on_created(self, event):
     assert event.src_path == "/tmp/haproxy"
     write_config()
-    os.remove(event.src_path)
+    try:
+      os.remove(event.src_path)
+    except IOError:
+      pass
+    except OSError:
+      pass
 
   def dispatch(self, event):
-    if event.src_path == "/tmp/haproxy" and event.event_type == EVENT_TYPE_CREATED:
+    print event
+    if event.src_path == "/tmp/haproxy" and (event.event_type == EVENT_TYPE_CREATED or event.event_type == EVENT_TYPE_MODIFIED):
       self.on_created(event)
 
 def main():
   logging.basicConfig(level=logging.INFO,
                       format='%(asctime)s - %(message)s',
                       datefmt='%Y-%m-%d %H:%M:%S')
-
-  try:
-    os.remove("/tmp/haproxy")
-  except IOError:
-    pass
-  except OSError:
-    pass
 
   write_config()
 
