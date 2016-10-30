@@ -1,6 +1,6 @@
 # dockerized haproxy
 
-this docker container provides haproxy and a small python script which will recreate its configuration when the file /tmp/haproxy gets changed
+this docker container provides haproxy and a small python script which will recreate its configuration from available docker hosts when the file /tmp/haproxy gets changed
 
 ## How does it work
 
@@ -13,13 +13,13 @@ If you want to recreate the haproxy-configuraion just touch /tmp/haproxy, the sc
 ## pull the container via
 
 ```
-docker pull factorial/haproxy
+docker pull factorial/haproxy-config
 ```
 
 ## build the container locally
 
 ```
-docker build --tag=factorial/haproxy .
+docker build --tag=factorial/haproxy-config .
 ```
 
 ## run the container
@@ -31,5 +31,7 @@ docker run \
   -v /dev/log:/dev/log \
   -p 80:80 \
   -p 1936:1936 \
+  --name haproxy \
+  -d \
   factorial/haproxy
 ```
