@@ -33,5 +33,5 @@ docker run \
   -p 1936:1936 \
   --name haproxy \
   -d \
-  factorial/haproxy
+  factorial/haproxy-config
 ```
