@@ -10,19 +10,43 @@ How does haproxy know about the running docker-containers? There's a python scri
 
 If you want to recreate the haproxy-configuraion just touch /tmp/haproxy, the script will rewrite the configuration and restart haproxy.
 
-## pull the container via
+## Environment variables used by haproxy_config:
+
+* `VHOST` the hostname to use for this docker-container
+* `VPORT` the port to forward the http-traffic to, defaults to 80
+* `SSL` a path to a ssl-certificate to use for HTTPS-traffic
+* `HTTPS_ONLY` will forward traffic for port 80 to port 443 for that given VHOST.
+* `REDIRECT_FROM` redirect from a given hostname.
+
+**Example**
+
+running this docker-command will instruct haproxy to forward all https traffic for `my.domain.tld` to port `8888` inside the container
+
+```
+docker run \
+  -e VHOST=my.domain.tld \
+  -e VPORT=8888 \
+  -e SSL=/etc/ssl/private/mycert.pem \
+  -e HTTPS_ONLY=1 \
+  -e REDIRECT_FROM=old.domain.tld \
+  mydocker
+```
+
+This will instruct haproxy forward all http and https traffic for my.domain.tld` to port `8888` inside `mydocker`-container. It will also redirect all traffic for `old.domain.tld` to `my.domain.tld`
+
+## Pull the container via
 
 ```
 docker pull factorial/haproxy-config
 ```
 
-## build the container locally
+## Build the container locally
 
 ```
 docker build --tag=factorial/haproxy-config .
 ```
 
-## run the container
+## Run the container
 
 ```
 docker run \
@@ -35,3 +59,5 @@ docker run \
   -d \
   factorial/haproxy-config
 ```
+
+Note: if you want that haproxy handles SSL-traffic, you'll need to map the correspondig directory into the haproxy-container and listen also on port 443.
