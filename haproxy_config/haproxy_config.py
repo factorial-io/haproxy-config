@@ -18,6 +18,7 @@ def write_config():
   backends = ""
   certs = ""
   https_frontends = ""
+  ssh_proxy = ""
 
   dockerclient = get_docker_client()
   pattern = re.compile('[\W]+')
@@ -31,6 +32,7 @@ def write_config():
     vhost = environment.get("VHOST")
     ssl = environment.get("SSL")
     redirect = environment.get("REDIRECT_FROM")
+    ssh = environment.get("SSH")
 
     if not vhost:
         continue
@@ -63,6 +65,19 @@ backend {name}_cluster
       frontends += """    acl redirect_host_{name} hdr(host) -i {redirect}
     redirect code 301 prefix http://{vhost} if redirect_host_{name}
 """.format(name=name,vhost=vhost,redirect=redirect)
+
+    if ssh:
+      ssh_proxy = """
+frontend sshd
+    bind *:22
+    default_backend ssh
+    timeout client 1h
+
+backend ssh
+    mode tcp
+    server {name}_ssh {vhost}:{ssh}
+
+""".format(name=name, vhost=vhost, ssh=ssh)
 
   with open('/usr/local/etc/haproxy/haproxy.cfg', 'w+') as out:
     for line in open('./haproxy-override/haproxy.in.cfg'):
