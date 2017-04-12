@@ -43,7 +43,7 @@ def write_config():
     logging.info('found {name} with ip {ip}, using {vhost}:{port} as hostname.'.format(name=name, ip=ip, vhost=vhost, port=port))
 
     frontends += """
-    acl host_{name} hdr(host) -i {vhost}
+    acl host_{name} hdr_dom(host) -i {vhost}
     use_backend {name}_cluster if host_{name}
 """.format(name=name,vhost=vhost)
 
@@ -62,13 +62,14 @@ backend {name}_cluster
       logging.info('using SSL with cert {cert}'.format(cert=ssl))
 
     if redirect:
-      frontends += """    acl redirect_host_{name} hdr(host) -i {redirect}
+      frontends += """    acl redirect_host_{name} hdr_dom(host) -i {redirect}
     redirect code 301 prefix http://{vhost} if redirect_host_{name}
 """.format(name=name,vhost=vhost,redirect=redirect)
 
     if ssh:
       ssh_proxy = """
 frontend sshd
+    mode tcp
     bind *:22
     default_backend ssh
     timeout client 1h
