@@ -76,9 +76,9 @@ frontend sshd
 
 backend ssh
     mode tcp
-    server {name}_ssh {vhost}:{ssh}
+    server {name}_ssh {ip}:{ssh}
 
-""".format(name=name, vhost=vhost, ssh=ssh)
+""".format(name=name, vhost=vhost, ssh=ssh, ip=ip)
 
   with open('/usr/local/etc/haproxy/haproxy.cfg', 'w+') as out:
     for line in open('./haproxy-override/haproxy.in.cfg'):
