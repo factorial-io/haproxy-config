@@ -1,4 +1,4 @@
-FROM haproxy:1.5
+FROM haproxy:1.7
 
 RUN mkdir /run/haproxy
 RUN touch /run/haproxy.pid
