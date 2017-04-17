@@ -62,9 +62,10 @@ backend {name}_cluster
       logging.info('using SSL with cert {cert}'.format(cert=ssl))
 
     if redirect:
-      frontends += """    acl redirect_host_{name} hdr_dom(host) -i {redirect}
-    redirect code 301 prefix http://{vhost} if redirect_host_{name}
-""".format(name=name,vhost=vhost,redirect=redirect)
+      scheme = 'https' if ssl else 'http'
+      frontends += """    acl redirect_host_{name} hdr(host) -i {redirect}
+    redirect code 302 prefix {scheme}://{vhost} if redirect_host_{name}
+""".format(name=name,vhost=vhost,redirect=redirect, scheme=scheme)
 
     if ssh:
       ssh_proxy = """
