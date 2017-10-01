@@ -10,7 +10,7 @@ from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler, EVENT_TYPE_CREATED, EVENT_TYPE_MODIFIED
 
 def get_docker_client():
-    return docker.Client(base_url='unix://var/run/docker.sock', version='1.12', timeout=20)
+    return docker.Client(base_url='unix://var/run/docker.sock')
 
 
 def write_config():
@@ -28,8 +28,19 @@ def write_config():
     name = pattern.sub('', container.get("Names")[0])
     insp = dockerclient.inspect_container(container.get("Id"))
     ip = insp.get("NetworkSettings").get("IPAddress")
+    if not ip:
+      networks = insp.get("NetworkSettings").get("Networks")
+      for network_name in networks:
+        network = networks[network_name]
+        if not ip:
+          ip = network["IPAddress"]
+
+
     environment = {k.split("=")[0]:k.split("=")[1] for k in insp.get("Config").get("Env") }
     vhost = environment.get("VHOST")
+    if not vhost:
+      vhost = environment.get('VIRTUAL_HOST')
+
     ssl = environment.get("SSL")
     redirect = environment.get("REDIRECT_FROM")
     ssh = environment.get("SSH")
@@ -37,6 +48,8 @@ def write_config():
     if not vhost:
         continue
     port = environment.get("VPORT")
+    if not port:
+      port = environment.get('VIRTUAL_PORT')
     if not port:
         port = 80
 
