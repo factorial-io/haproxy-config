@@ -10,7 +10,7 @@ from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler, EVENT_TYPE_CREATED, EVENT_TYPE_MODIFIED
 
 def get_docker_client():
-    return docker.Client(base_url='unix://var/run/docker.sock', version='1.12', timeout=20)
+    return docker.Client(base_url='unix://var/run/docker.sock')
 
 
 def write_config():
@@ -18,6 +18,7 @@ def write_config():
   backends = ""
   certs = ""
   https_frontends = ""
+  ssh_proxy = ""
 
   dockerclient = get_docker_client()
   pattern = re.compile('[\W]+')
@@ -27,21 +28,44 @@ def write_config():
     name = pattern.sub('', container.get("Names")[0])
     insp = dockerclient.inspect_container(container.get("Id"))
     ip = insp.get("NetworkSettings").get("IPAddress")
+    if not ip:
+      networks = insp.get("NetworkSettings").get("Networks")
+      for network_name in networks:
+        network = networks[network_name]
+        if not ip:
+          ip = network["IPAddress"]
+
+
     environment = {k.split("=")[0]:k.split("=")[1] for k in insp.get("Config").get("Env") }
     vhost = environment.get("VHOST")
+    if not vhost:
+      vhost = environment.get('VIRTUAL_HOST')
+
     ssl = environment.get("SSL")
     redirect = environment.get("REDIRECT_FROM")
+    ssh = environment.get("SSH")
 
     if not vhost:
         continue
     port = environment.get("VPORT")
     if not port:
+      port = environment.get('VIRTUAL_PORT')
+    if not port:
         port = 80
 
     logging.info('found {name} with ip {ip}, using {vhost}:{port} as hostname.'.format(name=name, ip=ip, vhost=vhost, port=port))
 
-    frontends += "    acl host_{name} hdr(host) -i {vhost}\n    use_backend {name}_cluster if host_{name}\n".format(name=name,vhost=vhost)
-    backends += "\n\nbackend {name}_cluster\n    server node1 {ip}:{port}\n".format(name=name,ip=ip, port=port)
+    frontends += """
+    acl host_{name} hdr_dom(host) -i {vhost}
+    use_backend {name}_cluster if host_{name}
+""".format(name=name,vhost=vhost)
+
+    backends += """
+
+backend {name}_cluster
+    mode http
+    server node1 {ip}:{port}
+""".format(name=name,ip=ip, port=port)
 
     if ssl:
       certs = certs + "crt " + ssl + " "
@@ -51,27 +75,47 @@ def write_config():
       logging.info('using SSL with cert {cert}'.format(cert=ssl))
 
     if redirect:
-      frontends += "    acl redirect_host_{name} hdr(host) -i {redirect}\n    redirect code 301 prefix http://{vhost} if redirect_host_{name}\n".format(name=name,vhost=vhost,redirect=redirect)
+      scheme = 'https' if ssl else 'http'
+      frontends += """    acl redirect_host_{name} hdr(host) -i {redirect}
+    redirect code 302 prefix {scheme}://{vhost} if redirect_host_{name}
+""".format(name=name,vhost=vhost,redirect=redirect, scheme=scheme)
+
+    if ssh:
+      ssh_proxy = """
+frontend sshd
+    mode tcp
+    bind *:22
+    default_backend ssh
+    timeout client 1h
+
+backend ssh
+    mode tcp
+    server {name}_ssh {ip}:{ssh}
+
+""".format(name=name, vhost=vhost, ssh=ssh, ip=ip)
 
   with open('/usr/local/etc/haproxy/haproxy.cfg', 'w+') as out:
-      for line in open('./haproxy-override/haproxy.in.cfg'):
-          if line.strip() == "###FRONTENDS###":
-              out.write(frontends)
-          elif line.strip() == "###BACKENDS###":
-              out.write(backends)
-	  elif line.strip() == "###CERTS###":
-            if certs != '':
-              out.write("    bind *:443 ssl %s\n" % certs)
+    for line in open('./haproxy-override/haproxy.in.cfg'):
+      if line.strip() == "###FRONTENDS###":
+        out.write(frontends)
+      elif line.strip() == "###BACKENDS###":
+        out.write(backends)
+      elif line.strip() == "###CERTS###":
+        if certs != '':
+          out.write("    bind *:443 ssl %s\n    mode http\n" % certs)
 
-          elif line.strip() == "###HTTPS_FRONTENDS###":
-              out.write(https_frontends)
-          else:
-              out.write(line)
+      elif line.strip() == "###HTTPS_FRONTENDS###":
+        out.write(https_frontends)
+      elif line.strip() == '###SSH_PROXY###':
+        out.write(ssh_proxy)
+      else:
+        out.write(line)
+
   logging.info('Restarting haproxy container')
   #os.system("haproxy -f /usr/local/etc/haproxy/haproxy.cfg -p /run/haproxy.pid -sf $(cat /run/haproxy.pid)")
   os.system("kill -s HUP $(pidof haproxy-systemd-wrapper)")
   time.sleep(5)
-	
+
   #os.system("service haproxy reload")
 
 class MyEventHandler(FileSystemEventHandler):
