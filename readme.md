@@ -12,11 +12,12 @@ If you want to recreate the haproxy-configuraion just touch /tmp/haproxy, the sc
 
 ## Environment variables used by haproxy_config:
 
-* `VHOST` the hostname to use for this docker-container
-* `VPORT` the port to forward the http-traffic to, defaults to 80
+* `VHOST`  or `VIRTUAL_HOST` the hostname to use for this docker-container
+* `VPORT` or `VIRTUAL_PORT` the port to forward the http-traffic to, defaults to 80
 * `SSL` a path to a ssl-certificate to use for HTTPS-traffic
 * `HTTPS_ONLY` will forward traffic for port 80 to port 443 for that given VHOST.
 * `REDIRECT_FROM` redirect from a given hostname.
+* `SSH` if a container exposes this environment variable, all ssh-traffic to 22 is forwarded to the container. This setting can be used only for one container.
 
 **Example**
 
@@ -61,3 +62,29 @@ docker run \
 ```
 
 Note: if you want that haproxy handles SSL-traffic, you'll need to map the correspondig directory into the haproxy-container and listen also on port 443.
+
+## Docker networks
+
+With version 1.1.0 docker networks are supported, Please make sure, that the haproxy container can connect to the networks of your docker-container:
+
+```
+docker network connect haproxy <your-network-name>
+```
+
+## Changelog
+
+### 1.1.0
+
+  - support for docker networks
+  - support for `VIRTUAL_HOST` and `VIRTUAL_PORT`
+  - support for forwarding SSH-traffic to a specific container
+
+### 1.0.2
+  - bind also to port 8080
+
+### 1.0.1
+  - enhance documentation
+  - fix race condition of spawning multiple haproxy instances
+
+### 1.0.0
+  - initial release
