@@ -5,9 +5,8 @@ import docker
 import re
 import os
 import time
+import json
 
-from watchdog.observers import Observer
-from watchdog.events import FileSystemEventHandler, EVENT_TYPE_CREATED, EVENT_TYPE_MODIFIED
 
 def get_docker_client():
     return docker.Client(base_url='unix://var/run/docker.sock')
@@ -111,6 +110,7 @@ backend ssh
       else:
         out.write(line)
 
+def restart_haproxy():
   logging.info('Restarting haproxy container')
   #os.system("haproxy -f /usr/local/etc/haproxy/haproxy.cfg -p /run/haproxy.pid -sf $(cat /run/haproxy.pid)")
   os.system("kill -s HUP $(pidof haproxy-systemd-wrapper)")
@@ -118,21 +118,6 @@ backend ssh
 
   #os.system("service haproxy reload")
 
-class MyEventHandler(FileSystemEventHandler):
-  def on_created(self, event):
-    assert event.src_path == "/tmp/haproxy"
-    write_config()
-    try:
-      os.remove(event.src_path)
-    except IOError:
-      pass
-    except OSError:
-      pass
-
-  def dispatch(self, event):
-    print event
-    if event.src_path == "/tmp/haproxy" and (event.event_type == EVENT_TYPE_CREATED or event.event_type == EVENT_TYPE_MODIFIED):
-      self.on_created(event)
 
 def main():
   logging.basicConfig(level=logging.INFO,
@@ -141,18 +126,10 @@ def main():
 
   write_config()
 
-  observer = Observer()
-  observer.schedule(MyEventHandler(), "/tmp", recursive=False)
-  observer.start()
-
-  try:
-    while True:
-      time.sleep(1)
-  except KeyboardInterrupt:
-    observer.stop()
-
-  observer.join()
-
+  for event in get_docker_client().events():
+    event = json.loads(event)
+    if 'status' in event and (event['status'] == 'start' or event['status'] == 'die'):
+      write_config()
 
 if __name__ == "__main__":
     main()
