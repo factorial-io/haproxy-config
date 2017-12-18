@@ -63,8 +63,9 @@ def write_config():
       'ssh': ssh,
       'port': port,
       'ssl': ssl,
-      'redirects': redirects,
+      'redirects': redirects or [],
       'vhosts': vhosts,
+      'vhost_regex': environment.get('VHOST_REGEX'),
       'https_only': environment.get('HTTPS_ONLY')
     }
     data.append(entry)
@@ -73,13 +74,13 @@ def write_config():
         loader=jinja2.FileSystemLoader('./')
   ).get_template('haproxy_config.tmpl').render({
     'containers': data,
-    'certs': ' '.join(certificates.values())
+    'certs': certificates.values()
   })
 
+  logging.info('Writing new config')
   with open('/usr/local/etc/haproxy/haproxy.cfg', 'w+') as out:
     out.write(rendered)
 
-  # restart_haproxy()
 
 def restart_haproxy():
   logging.info('Restarting haproxy container')
@@ -101,6 +102,7 @@ def main():
     event = json.loads(event)
     if 'status' in event and (event['status'] == 'start' or event['status'] == 'die'):
       write_config()
+      restart_haproxy()
 
 if __name__ == "__main__":
     main()
