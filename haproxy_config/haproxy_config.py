@@ -10,7 +10,7 @@ import jinja2
 
 
 def get_docker_client():
-    return docker.Client(base_url='unix://var/run/docker.sock')
+    return docker.Client(base_url='unix://var/run/docker.sock', version='auto')
 
 
 def write_config():

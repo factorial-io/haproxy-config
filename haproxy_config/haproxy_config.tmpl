@@ -65,8 +65,8 @@ frontend http-in
     use_backend {{container.name}}_cluster if host_{{container.name}}
   {% endfor %}
   {% if container.vhost_regex %}
-    acl host_{{container.name}} hdr_reg(host) -i {{ container.vhost_regex }}
-    use_backend {{container.name}}_cluster if host_{{container.name}}
+    acl host_{{container.name}}_regex hdr_reg(host) -i {{ container.vhost_regex }}
+    use_backend {{container.name}}_cluster if host_{{container.name}}_regex
   {% endif %}
   {% for redirect in container.redirects %}
     acl redirect_host_{{container.name}} hdr(host) -i {{redirect}}
@@ -85,6 +85,9 @@ frontend https-in
   {% for vhost in container.vhosts %}
     use_backend {{container.name}}_cluster if { ssl_fc_sni {{vhost}} }
   {% endfor %}
+  {% if container.vhost_regex %}
+    use_backend {{container.name}}_cluster if { ssl_fc_sni_reg {{container.vhost_regex}} }
+  {% endif %}
 {% endfor %}
 {% endif %}
 
