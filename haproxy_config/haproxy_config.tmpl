@@ -30,7 +30,21 @@ defaults
   compression algo gzip
 	compression type text/html text/plain text/css
 
-###SSH_PROXY###
+{% for container in containers %}
+  {% if container.ssh %}
+
+frontend sshd
+    mode tcp
+    bind *:22
+    default_backend ssh
+    timeout client 1h
+
+backend ssh
+    mode tcp
+    server {{container.name}}_ssh {{container.ip}}:{{container.ssh}}
+
+  {% endif %}
+{% endfor %}
 
 frontend http-in
     bind *:80
@@ -45,17 +59,48 @@ frontend http-in
     rspadd Access-Control-Allow-Credentials:\ true  if { capture.req.hdr(0) -m found }
     rspadd Access-Control-Allow-Headers:\ Origin,\ Accept,\ X-Requested-With,\ Content-Type,\ Access-Control-Request-Method,\ Access-Control-Request-Headers,\ Authorization  if { capture.req.hdr(0) -m found }
 
+{% for container in containers %}
+  {% for vhost in container.vhosts %}
+    acl host_{{container.name}} hdr_dom(host) -i {{ vhost }}
+    use_backend {{container.name}}_cluster if host_{{container.name}}
+  {% endfor %}
+  {% if container.vhost_regex %}
+    acl host_{{container.name}}_regex hdr_reg(host) -i {{ container.vhost_regex }}
+    use_backend {{container.name}}_cluster if host_{{container.name}}_regex
+  {% endif %}
+  {% for redirect in container.redirects %}
+    acl redirect_host_{{container.name}} hdr(host) -i {{redirect}}
+    redirect code 302 prefix {{'https' if container.ssl else 'http'}}://{{container.vhosts.0}} if redirect_host_{{container.name}}
+  {% endfor %}
+{% endfor %}
 
-    ###FRONTENDS###
 
+{% if certs|length > 0 %}
 frontend https-in
-    ###CERTS###
+    bind *:443 ssl crt {{ certs|join(' crt ') }}
+    mode http
     reqadd X-Forwarded-Proto:\ https
-    ###HTTPS_FRONTENDS###
+
+{% for container in containers %}
+  {% for vhost in container.vhosts %}
+    use_backend {{container.name}}_cluster if { ssl_fc_sni {{vhost}} }
+  {% endfor %}
+  {% if container.vhost_regex %}
+    use_backend {{container.name}}_cluster if { ssl_fc_sni_reg {{container.vhost_regex}} }
+  {% endif %}
+{% endfor %}
+{% endif %}
 
 
+{% for container in containers %}
+backend {{container.name}}_cluster
+    mode http
+    server node1 {{container.ip}}:{{container.port}}
+  {% if container.https_only %}
+    redirect scheme https if !{ ssl_fc }
+  {% endif %}
+{% endfor %}
 
-###BACKENDS###
 
 listen stats
     bind *:1936

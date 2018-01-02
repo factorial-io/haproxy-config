@@ -5,21 +5,17 @@ import docker
 import re
 import os
 import time
+import json
+import jinja2
 
-from watchdog.observers import Observer
-from watchdog.events import FileSystemEventHandler, EVENT_TYPE_CREATED, EVENT_TYPE_MODIFIED
 
 def get_docker_client():
-    return docker.Client(base_url='unix://var/run/docker.sock')
+    return docker.Client(base_url='unix://var/run/docker.sock', version='auto')
 
 
 def write_config():
-  frontends = ""
-  backends = ""
-  certs = ""
-  https_frontends = ""
-  ssh_proxy = ""
-
+  data = []
+  certificates = {}
   dockerclient = get_docker_client()
   pattern = re.compile('[\W]+')
 
@@ -42,7 +38,11 @@ def write_config():
       vhost = environment.get('VIRTUAL_HOST')
 
     ssl = environment.get("SSL")
-    redirect = environment.get("REDIRECT_FROM")
+    if ssl:
+      certificates[ssl] = ssl
+    redirects = environment.get("REDIRECT_FROM")
+    if redirects:
+      redirects = redirects.split(' ')
     ssh = environment.get("SSH")
 
     if not vhost:
@@ -53,64 +53,36 @@ def write_config():
     if not port:
         port = 80
 
+    vhosts = vhost.split(' ')
+
     logging.info('found {name} with ip {ip}, using {vhost}:{port} as hostname.'.format(name=name, ip=ip, vhost=vhost, port=port))
 
-    frontends += """
-    acl host_{name} hdr_dom(host) -i {vhost}
-    use_backend {name}_cluster if host_{name}
-""".format(name=name,vhost=vhost)
+    entry = {
+      'name': name,
+      'ip': ip,
+      'ssh': ssh,
+      'port': port,
+      'ssl': ssl,
+      'redirects': redirects or [],
+      'vhosts': vhosts,
+      'vhost_regex': environment.get('VHOST_REGEX'),
+      'https_only': environment.get('HTTPS_ONLY')
+    }
+    data.append(entry)
 
-    backends += """
+  rendered = jinja2.Environment(
+        loader=jinja2.FileSystemLoader('./')
+  ).get_template('haproxy_config.tmpl').render({
+    'containers': data,
+    'certs': certificates.values()
+  })
 
-backend {name}_cluster
-    mode http
-    server node1 {ip}:{port}
-""".format(name=name,ip=ip, port=port)
-
-    if ssl:
-      certs = certs + "crt " + ssl + " "
-      https_frontends += "    use_backend {name}_cluster if {{ ssl_fc_sni {vhost} }}\n".format(name=name, vhost=vhost)
-      if environment.get("HTTPS_ONLY"):
-        backends += "    redirect scheme https if !{ ssl_fc }\n"
-      logging.info('using SSL with cert {cert}'.format(cert=ssl))
-
-    if redirect:
-      scheme = 'https' if ssl else 'http'
-      frontends += """    acl redirect_host_{name} hdr(host) -i {redirect}
-    redirect code 302 prefix {scheme}://{vhost} if redirect_host_{name}
-""".format(name=name,vhost=vhost,redirect=redirect, scheme=scheme)
-
-    if ssh:
-      ssh_proxy = """
-frontend sshd
-    mode tcp
-    bind *:22
-    default_backend ssh
-    timeout client 1h
-
-backend ssh
-    mode tcp
-    server {name}_ssh {ip}:{ssh}
-
-""".format(name=name, vhost=vhost, ssh=ssh, ip=ip)
-
+  logging.info('Writing new config')
   with open('/usr/local/etc/haproxy/haproxy.cfg', 'w+') as out:
-    for line in open('./haproxy-override/haproxy.in.cfg'):
-      if line.strip() == "###FRONTENDS###":
-        out.write(frontends)
-      elif line.strip() == "###BACKENDS###":
-        out.write(backends)
-      elif line.strip() == "###CERTS###":
-        if certs != '':
-          out.write("    bind *:443 ssl %s\n    mode http\n" % certs)
+    out.write(rendered)
 
-      elif line.strip() == "###HTTPS_FRONTENDS###":
-        out.write(https_frontends)
-      elif line.strip() == '###SSH_PROXY###':
-        out.write(ssh_proxy)
-      else:
-        out.write(line)
 
+def restart_haproxy():
   logging.info('Restarting haproxy container')
   #os.system("haproxy -f /usr/local/etc/haproxy/haproxy.cfg -p /run/haproxy.pid -sf $(cat /run/haproxy.pid)")
   os.system("kill -s HUP $(pidof haproxy-systemd-wrapper)")
@@ -118,21 +90,6 @@ backend ssh
 
   #os.system("service haproxy reload")
 
-class MyEventHandler(FileSystemEventHandler):
-  def on_created(self, event):
-    assert event.src_path == "/tmp/haproxy"
-    write_config()
-    try:
-      os.remove(event.src_path)
-    except IOError:
-      pass
-    except OSError:
-      pass
-
-  def dispatch(self, event):
-    print event
-    if event.src_path == "/tmp/haproxy" and (event.event_type == EVENT_TYPE_CREATED or event.event_type == EVENT_TYPE_MODIFIED):
-      self.on_created(event)
 
 def main():
   logging.basicConfig(level=logging.INFO,
@@ -141,18 +98,11 @@ def main():
 
   write_config()
 
-  observer = Observer()
-  observer.schedule(MyEventHandler(), "/tmp", recursive=False)
-  observer.start()
-
-  try:
-    while True:
-      time.sleep(1)
-  except KeyboardInterrupt:
-    observer.stop()
-
-  observer.join()
-
+  for event in get_docker_client().events():
+    event = json.loads(event)
+    if 'status' in event and (event['status'] == 'start' or event['status'] == 'die'):
+      write_config()
+      restart_haproxy()
 
 if __name__ == "__main__":
     main()
