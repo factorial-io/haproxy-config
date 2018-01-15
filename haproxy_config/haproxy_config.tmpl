@@ -1,0 +1,105 @@
+global
+	log /dev/log	local0
+	log /dev/log	local1 notice
+	stats socket /run/haproxy/admin.sock mode 660 level admin
+	stats timeout 30s
+
+
+	# Default ciphers to use on SSL-enabled listening sockets.
+	# For more information, see ciphers(1SSL).
+	ssl-default-bind-ciphers kEECDH+aRSA+AES:kRSA+AES:+AES256:RC4-SHA:!kEDH:!LOW:!EXP:!MD5:!aNULL:!eNULL
+
+defaults
+	log	global
+	mode	http
+	option	httplog
+	option	dontlognull
+	option forwardfor
+   	option http-server-close
+        timeout connect 5000
+        timeout client  500000
+        timeout server  500000
+	errorfile 400 /usr/local/etc/haproxy/errors/400.http
+	errorfile 403 /usr/local/etc/haproxy/errors/403.http
+	errorfile 408 /usr/local/etc/haproxy/errors/408.http
+	errorfile 500 /usr/local/etc/haproxy/errors/500.http
+	errorfile 502 /usr/local/etc/haproxy/errors/502.http
+	errorfile 503 /usr/local/etc/haproxy/errors/503.http
+	errorfile 504 /usr/local/etc/haproxy/errors/504.http
+
+  compression algo gzip
+	compression type text/html text/plain text/css
+
+{% for container in containers %}
+  {% if container.ssh %}
+
+frontend sshd
+    mode tcp
+    bind *:22
+    default_backend ssh
+    timeout client 1h
+
+backend ssh
+    mode tcp
+    server {{container.name}}_ssh {{container.ip}}:{{container.ssh}}
+
+  {% endif %}
+{% endfor %}
+
+frontend http-in
+    bind *:80
+    bind *:8080
+    mode http
+    reqadd X-Forwarded-Proto:\ http
+
+{% for container in containers %}
+  {% for vhost in container.vhosts %}
+    acl host_{{container.name}} hdr_dom(host) -i {{ vhost }}
+    use_backend {{container.name}}_cluster if host_{{container.name}}
+  {% endfor %}
+  {% if container.vhost_regex %}
+    acl host_{{container.name}}_regex hdr_reg(host) -i {{ container.vhost_regex }}
+    use_backend {{container.name}}_cluster if host_{{container.name}}_regex
+  {% endif %}
+  {% for redirect in container.redirects %}
+    acl redirect_host_{{container.name}} hdr(host) -i {{redirect}}
+    redirect code 302 prefix {{'https' if container.ssl else 'http'}}://{{container.vhosts.0}} if redirect_host_{{container.name}}
+  {% endfor %}
+{% endfor %}
+
+
+{% if certs|length > 0 %}
+frontend https-in
+    bind *:443 ssl crt {{ certs|join(' crt ') }}
+    mode http
+    reqadd X-Forwarded-Proto:\ https
+
+{% for container in containers %}
+  {% for vhost in container.vhosts %}
+    use_backend {{container.name}}_cluster if { ssl_fc_sni {{vhost}} }
+  {% endfor %}
+  {% if container.vhost_regex %}
+    use_backend {{container.name}}_cluster if { ssl_fc_sni_reg {{container.vhost_regex}} }
+  {% endif %}
+{% endfor %}
+{% endif %}
+
+
+{% for container in containers %}
+backend {{container.name}}_cluster
+    mode http
+    server node1 {{container.ip}}:{{container.port}}
+  {% if container.https_only %}
+    redirect scheme https if !{ ssl_fc }
+  {% endif %}
+{% endfor %}
+
+
+listen stats
+    bind *:1936
+    mode http
+    stats enable
+    stats hide-version
+    stats realm Haproxy\ Statistics
+    stats uri /
+    stats auth haproxy:yxorpah
