@@ -31,8 +31,14 @@ def write_config():
         if not ip:
           ip = network["IPAddress"]
 
+    environment = {}
+    for k in insp.get("Config").get("Env"):
+      values = k.split("=")
+      if len(values) > 1:
+        environment[values[0]] = values[1]
+      else:
+        environment[values[0]] = values[0]
 
-    environment = {k.split("=")[0]:k.split("=")[1] for k in insp.get("Config").get("Env") }
     vhost = environment.get("VHOST")
     if not vhost:
       vhost = environment.get('VIRTUAL_HOST')
