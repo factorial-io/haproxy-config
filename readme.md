@@ -18,6 +18,7 @@ If you want to recreate the haproxy-configuraion just touch /tmp/haproxy, the sc
 * `HTTPS_ONLY` will forward traffic for port 80 to port 443 for that given VHOST.
 * `REDIRECT_FROM` redirect from a given hostname. (Separate multiple hostnames with a space)
 * `SSH` if a container exposes this environment variable, all ssh-traffic to 22 is forwarded to the container. This setting can be used only for one container.
+* `EXPOSED_NETWORK`, name of network to expose to the haproxy-config
 
 **Example**
 
@@ -33,7 +34,7 @@ docker run \
   mydocker
 ```
 
-This will instruct haproxy forward all http and https traffic for my.domain.tld` to port `8888` inside `mydocker`-container. It will also redirect all traffic for `old.domain.tld` to `my.domain.tld`
+This will instruct haproxy forward all http and https traffic for `my.domain.tld` to port `8888` inside `mydocker`-container. It will also redirect all traffic for `old.domain.tld` to `my.domain.tld`
 
 ## Pull the container via
 
@@ -71,6 +72,9 @@ docker network connect haproxy <your-network-name>
 ```
 
 ## Changelog
+
+### 1.2.1
+- add `EXPOSED_NETWORK` to expose an IP of a specific network to the haproxy config
 
 ### 1.2.0
 
