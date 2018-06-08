@@ -24,12 +24,6 @@ def write_config():
     name = pattern.sub('', container.get("Names")[0])
     insp = dockerclient.inspect_container(container.get("Id"))
     ip = insp.get("NetworkSettings").get("IPAddress")
-    if not ip:
-      networks = insp.get("NetworkSettings").get("Networks")
-      for network_name in networks:
-        network = networks[network_name]
-        if not ip:
-          ip = network["IPAddress"]
 
     environment = {}
     for k in insp.get("Config").get("Env"):
@@ -38,6 +32,15 @@ def write_config():
         environment[values[0]] = values[1]
       else:
         environment[values[0]] = values[0]
+
+    exposed_network = environment.get('EXPOSED_NETWORK');
+
+    if not ip:
+      networks = insp.get("NetworkSettings").get("Networks")
+      for network_name in networks:
+        network = networks[network_name]
+        if not ip or exposed_network == network_name:
+          ip = network["IPAddress"]
 
     vhost = environment.get("VHOST")
     if not vhost:
