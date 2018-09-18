@@ -26,12 +26,13 @@ def write_config():
     ip = insp.get("NetworkSettings").get("IPAddress")
 
     environment = {}
-    for k in insp.get("Config").get("Env"):
-      values = k.split("=")
-      if len(values) > 1:
-        environment[values[0]] = values[1]
-      else:
-        environment[values[0]] = values[0]
+    if insp.get("Config"):
+      for k in insp.get("Config").get("Env"):
+        values = k.split("=")
+        if len(values) > 1:
+          environment[values[0]] = values[1]
+        else:
+          environment[values[0]] = values[0]
 
     exposed_network = environment.get('EXPOSED_NETWORK');
 
