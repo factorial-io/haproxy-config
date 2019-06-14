@@ -80,16 +80,20 @@ def write_config():
     }
     data.append(entry)
 
-  rendered = jinja2.Environment(
-        loader=jinja2.FileSystemLoader('./')
-  ).get_template('haproxy_config.tmpl').render({
-    'containers': data,
-    'certs': certificates.values()
-  })
+  try:
+    rendered = jinja2.Environment(
+          loader=jinja2.FileSystemLoader('./')
+    ).get_template('haproxy_config.tmpl').render({
+      'containers': data,
+      'certs': certificates.values()
+    })
 
-  logging.info('Writing new config')
-  with open('/usr/local/etc/haproxy/haproxy.cfg', 'w+') as out:
-    out.write(rendered)
+    logging.info('Writing new config')
+    with open('/usr/local/etc/haproxy/haproxy.cfg', 'w+') as out:
+      out.write(rendered)
+
+  except:
+    logging.error("Exception while writing configuration")
 
 
 def restart_haproxy():
@@ -111,8 +115,18 @@ def main():
   for event in get_docker_client().events():
     event = json.loads(event)
     if 'status' in event and (event['status'] == 'start' or event['status'] == 'die'):
-      write_config()
-      restart_haproxy()
+      tries = 0;
+      failed = True
+      while tries < 3 and failed:
+        try:
+          write_config()
+          restart_haproxy()
+          failed = False
+        except:
+          logging.error('Could not write config, trying again')
+          failed = True
+
+        tries += 1
 
 if __name__ == "__main__":
     main()
