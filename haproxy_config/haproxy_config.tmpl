@@ -81,6 +81,9 @@ frontend https-in
   {% if container.vhost_regex %}
     use_backend {{container.name}}_cluster if { ssl_fc_sni_reg {{container.vhost_regex}} }
   {% endif %}
+  {% for redirect in container.redirects %}
+    redirect code 302 prefix https://{{container.vhosts.0}} if { hdr(host)  -i {{ redirect }} }
+  {% endfor %}
 {% endfor %}
 {% endif %}
 
