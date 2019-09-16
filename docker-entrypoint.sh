@@ -1,19 +1,21 @@
 #!/bin/sh
 set -e
 
-
 # first arg is `-f` or `--some-option`
 if [ "${1#-}" != "$1" ]; then
-  set -- haproxy "$@"
+	set -- haproxy "$@"
 fi
 
 if [ "$1" = 'haproxy' ]; then
-  echo "starting haproxy_config"
-  cd /usr/local/haproxy_config/ && ./haproxy_config.py &
-  sleep 3s
-  # if the user wants "haproxy", let's use "haproxy-systemd-wrapper" instead so we can have proper reloadability implemented by upstream
-  shift # "haproxy"
-  set -- "$(which haproxy-systemd-wrapper)" -p /run/haproxy.pid "$@"
+	shift # "haproxy"
+	# if the user wants "haproxy", let's add a couple useful flags
+	#   -W  -- "master-worker mode" (similar to the old "haproxy-systemd-wrapper"; allows for reload via "SIGUSR2")
+	#   -db -- disables background mode
+	set -- haproxy -W -db "$@"
 fi
+
+echo "starting haproxy_config"
+cd /usr/local/haproxy_config/ && ./haproxy_config.py &
+sleep 3s
 
 exec "$@"

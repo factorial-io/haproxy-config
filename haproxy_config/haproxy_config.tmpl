@@ -70,7 +70,7 @@ frontend http-in
 
 {% if certs|length > 0 %}
 frontend https-in
-    bind *:443 ssl crt {{ certs|join(' crt ') }}
+    bind *:443 ssl crt {{ certs|join(' crt ') }} alpn h2,http/1.1
     mode http
     reqadd X-Forwarded-Proto:\ https
 

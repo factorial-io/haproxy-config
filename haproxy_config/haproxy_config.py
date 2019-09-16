@@ -99,7 +99,7 @@ def write_config():
 def restart_haproxy():
   logging.info('Restarting haproxy container')
   #os.system("haproxy -f /usr/local/etc/haproxy/haproxy.cfg -p /run/haproxy.pid -sf $(cat /run/haproxy.pid)")
-  os.system("kill -s HUP $(pidof haproxy-systemd-wrapper)")
+  os.system("kill -s HUP $(pidof haproxy)")
   time.sleep(5)
 
   #os.system("service haproxy reload")
