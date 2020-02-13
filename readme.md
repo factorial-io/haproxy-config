@@ -75,6 +75,7 @@ docker network connect haproxy <your-network-name>
 ## Changelog
 
 ### 1.2.2
+- Use haproxy 1.9 which supports HTTP/2
 - support url-prefixe via `VPATH`
 - use `hdr(host)` instead of `hdr_dom(host)` to support domains and subdomains (e.g. example.com and docs.example.com)
 -
