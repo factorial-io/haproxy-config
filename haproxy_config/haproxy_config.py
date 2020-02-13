@@ -76,7 +76,8 @@ def write_config():
       'redirects': redirects or [],
       'vhosts': vhosts,
       'vhost_regex': environment.get('VHOST_REGEX'),
-      'https_only': environment.get('HTTPS_ONLY')
+      'https_only': environment.get('HTTPS_ONLY'),
+      'vpath': environment.get('VPATH')
     }
     data.append(entry)
 
@@ -89,11 +90,12 @@ def write_config():
     })
 
     logging.info('Writing new config')
+
     with open('/usr/local/etc/haproxy/haproxy.cfg', 'w+') as out:
       out.write(rendered)
 
-  except:
-    logging.error("Exception while writing configuration")
+  except Exception as e:
+    logging.error("Exception while writing configuration: " +str(e))
 
 
 def restart_haproxy():

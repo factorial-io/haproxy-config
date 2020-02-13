@@ -14,6 +14,7 @@ If you want to recreate the haproxy-configuraion just touch /tmp/haproxy, the sc
 
 * `VHOST`  or `VIRTUAL_HOST` the hostnames to use for this docker-container (separate multiple hostnames with a space)
 * `VPORT` or `VIRTUAL_PORT` the port to forward the http-traffic to, defaults to 80
+* `VPATH` the path to rewrite the url to; this allows you to serve multiple containers under the same domain, but with different url-prefixes. The prefixes get removed when passed to the containers.
 * `SSL` a path to a ssl-certificate to use for HTTPS-traffic
 * `HTTPS_ONLY` will forward traffic for port 80 to port 443 for that given VHOST.
 * `REDIRECT_FROM` redirect from a given hostname. (Separate multiple hostnames with a space)
@@ -61,7 +62,7 @@ docker run \
   factorial/haproxy-config
 ```
 
-Note: if you want that haproxy handles SSL-traffic, you'll need to map the correspondig directory into the haproxy-container and listen also on port 443.
+Note: if you want that haproxy handles SSL-traffic, you'll need to map the corresponding directory into the haproxy-container and listen also on port 443.
 
 ## Docker networks
 
@@ -73,6 +74,10 @@ docker network connect haproxy <your-network-name>
 
 ## Changelog
 
+### 1.2.2
+- support url-prefixe via `VPATH`
+- use `hdr(host)` instead of `hdr_dom(host)` to support domains and subdomains (e.g. example.com and docs.example.com)
+-
 ### 1.2.1
 - add `EXPOSED_NETWORK` to expose an IP of a specific network to the haproxy config
 
