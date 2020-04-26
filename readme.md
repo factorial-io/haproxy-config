@@ -6,9 +6,10 @@ this docker container provides haproxy and a small python script which will recr
 
 haproxy is listening on port 80 and will forward all requests to a specific docker-image. It uses the hostname to distinguish the containers.
 
-How does haproxy know about the running docker-containers? There's a python script loosely based on work of Bastian Hoyer which rewrites the haproxy-configuration when a docker-container gets started or gets stopped. It will scan all running docker-containers and get the hostname and port from all running containers via environment-variables. The container set the environment-variable VHOST and (optionally) VPORT to their needs, the configuration utility parses this information and the internal IP of the docker-container and constructs a suitable haproxy-configuration file and restarts haproxy.
+How does haproxy know about the running docker-containers? There's a python script loosely based on work of Bastian Hoyer which rewrites the haproxy-configuration when a docker-container gets started or gets stopped. It will scan all running docker-containers and get the hostname and port from all running containers via environment-variables. The container set the environment-variable VHOST and (optionally) VPORT to their needs, the configuration utility parses this information and the internal IP of the docker-container and constructs a suitable haproxy-configuration file and restarts haproxy. It listens for docker events and will update the haproxy config on demand.
 
-If you want to recreate the haproxy-configuraion just touch /tmp/haproxy, the script will rewrite the configuration and restart haproxy.
+If the environment variable `PROVIDE_DEFAULT_BACKEND` is set, then the python script will provide a basic status page listing all environments instead of showing a 503 error.
+
 
 ## Environment variables used by haproxy_config:
 
