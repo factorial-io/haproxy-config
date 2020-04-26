@@ -92,6 +92,13 @@ backend {{container.name}}_cluster
   {% endif %}
 {%- endfor %}
 
+{%if default_backend %}
+
+backend multibasebox_statuspage
+  mode http
+  default-server
+  server statuspage 127.0.0.1:8080
+{% endif %}
 
 listen stats
     bind *:1936

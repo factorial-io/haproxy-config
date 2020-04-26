@@ -8,12 +8,15 @@ import time
 import json
 import jinja2
 
+from http.server import HTTPServer, BaseHTTPRequestHandler
+import threading
+
 
 def get_docker_client():
     return docker.Client(base_url='unix://var/run/docker.sock', version='auto')
 
 
-def write_config():
+def get_config():
   data = []
   certificates = {}
   dockerclient = get_docker_client()
@@ -81,12 +84,18 @@ def write_config():
     }
     data.append(entry)
 
+  return (certificates, data)
+
+def write_config():
+
+  certificates, data = get_config()
   try:
     rendered = jinja2.Environment(
           loader=jinja2.FileSystemLoader('./')
     ).get_template('haproxy_config.tmpl').render({
       'containers': data,
-      'certs': certificates.values()
+      'certs': certificates.values(),
+      'default_backend': os.getenv('PROVIDE_DEFAULT_BACKEND')
     })
 
     logging.info('Writing new config')
@@ -107,7 +116,38 @@ def restart_haproxy():
   #os.system("service haproxy reload")
 
 
+class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
+
+  def do_GET(self):
+    self.send_response(200)
+    self.end_headers()
+
+    certificates, data = get_config()
+
+    try:
+      rendered = jinja2.Environment(
+            loader=jinja2.FileSystemLoader('./')
+      ).get_template('landing_page.tmpl').render({
+        'containers': data
+      })
+      self.wfile.write(rendered.encode())
+
+    except Exception as e:
+      logging.error("Exception while writing configuration: " +str(e))
+
+
+def start_http_server():
+  httpd = HTTPServer(('', 8000), SimpleHTTPRequestHandler)
+  httpd.serve_forever()
+
+
 def main():
+
+  if (os.getenv('PROVIDE_DEFAULT_BACKEND')):
+
+    http_thread = threading.Thread(target=start_http_server)
+    http_thread.start()
+
   logging.basicConfig(level=logging.INFO,
                       format='%(asctime)s - %(message)s',
                       datefmt='%Y-%m-%d %H:%M:%S')
