@@ -64,6 +64,9 @@ frontend http-in
     redirect code 302 prefix {{'https' if container.ssl else 'http'}}://{{container.vhosts.0}} if redirect_host_{{container.name}}
   {%- endfor %}
 {%- endfor %}
+{% if default_backend %}
+default_backend multibasebox_statuspage
+{% endif %}
 {% if certs|length > 0 %}
 frontend https-in
     bind *:443 ssl crt {{ certs|join(' crt ') }} alpn h2,http/1.1
@@ -92,12 +95,10 @@ backend {{container.name}}_cluster
   {% endif %}
 {%- endfor %}
 
-{%if default_backend %}
-
+{% if default_backend %}
 backend multibasebox_statuspage
   mode http
-  default-server
-  server statuspage 127.0.0.1:8080
+  server statuspage 127.0.0.1:8000
 {% endif %}
 
 listen stats

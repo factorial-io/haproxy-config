@@ -1,4 +1,4 @@
-#!./venv/bin/python
+#!./venv/bin/python3
 
 import logging
 import docker
@@ -105,6 +105,7 @@ def write_config():
 
   except Exception as e:
     logging.error("Exception while writing configuration: " +str(e))
+    print(e)
 
 
 def restart_haproxy():
@@ -119,6 +120,7 @@ def restart_haproxy():
 class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 
   def do_GET(self):
+    logging.info('Handling get request')
     self.send_response(200)
     self.end_headers()
 
@@ -133,24 +135,25 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
       self.wfile.write(rendered.encode())
 
     except Exception as e:
-      logging.error("Exception while writing configuration: " +str(e))
+      logging.error("Excpetion while handling request: " +str(e))
 
 
 def start_http_server():
+  logging.info('Starting http server...')
+
   httpd = HTTPServer(('', 8000), SimpleHTTPRequestHandler)
   httpd.serve_forever()
 
 
 def main():
+  logging.basicConfig(level=logging.INFO,
+                      format='%(asctime)s - %(message)s',
+                      datefmt='%Y-%m-%d %H:%M:%S')
 
   if (os.getenv('PROVIDE_DEFAULT_BACKEND')):
 
     http_thread = threading.Thread(target=start_http_server)
     http_thread.start()
-
-  logging.basicConfig(level=logging.INFO,
-                      format='%(asctime)s - %(message)s',
-                      datefmt='%Y-%m-%d %H:%M:%S')
 
   write_config()
 
