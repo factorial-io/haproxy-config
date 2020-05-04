@@ -7,10 +7,12 @@ import os
 import time
 import json
 import jinja2
+import subprocess
 
 from http.server import HTTPServer, BaseHTTPRequestHandler
 import threading
 
+LETS_ENCRYPT_CERT_FILE = "/etc/ssl/private/letsencrypt.pem"
 
 def get_docker_client():
     return docker.Client(base_url='unix://var/run/docker.sock', version='auto')
@@ -19,6 +21,7 @@ def get_docker_client():
 def get_config():
   data = []
   certificates = {}
+  letsencrypt = []
   dockerclient = get_docker_client()
   pattern = re.compile('[\W]+')
 
@@ -53,6 +56,7 @@ def get_config():
     ssl = environment.get("SSL")
     if ssl:
       certificates[ssl] = ssl
+
     redirects = environment.get("REDIRECT_FROM")
     if redirects:
       redirects = redirects.split(' ')
@@ -70,6 +74,12 @@ def get_config():
 
     logging.info('found {name} with ip {ip}, using {vhost}:{port} as hostname.'.format(name=name, ip=ip, vhost=vhost, port=port))
 
+    if environment.get("LETS_ENCRYPT"):
+        certificates[LETS_ENCRYPT_CERT_FILE] = LETS_ENCRYPT_CERT_FILE;
+        for vhost in vhosts:
+            letsencrypt.append(vhost)
+
+
     entry = {
       'name': name,
       'ip': ip,
@@ -84,11 +94,11 @@ def get_config():
     }
     data.append(entry)
 
-  return (certificates, data)
+  return (certificates, data, letsencrypt)
 
 def write_config():
 
-  certificates, data = get_config()
+  certificates, data, letsencrypt = get_config()
   try:
     rendered = jinja2.Environment(
           loader=jinja2.FileSystemLoader('./')
@@ -102,10 +112,49 @@ def write_config():
 
     with open('/usr/local/etc/haproxy/haproxy.cfg', 'w+') as out:
       out.write(rendered)
+      return letsencrypt
 
   except Exception as e:
     logging.error("Exception while writing configuration: " +str(e))
-    print(e)
+    logging.error(e)
+
+  return []
+
+
+def request_certificates(domains):
+  logging.info("requesting letsencrypt certs for " + ", ".join(domains))
+
+  mail = os.getenv("LETS_ENCRYPT_MAIL")
+  if not mail:
+    raise ValueError("Environment variable LETS_ENCRYPT_MAIL is not defined!") 
+
+  domain_args = "-d " + " -d ".join(domains)
+  
+  cmdline = "certbot certonly --dry-run --standalone --expand --non-interactive --agree-tos --email {mail} --http-01-port=8888 {domain_args}".format(**locals())
+  try:
+    result = False
+    result = subprocess.run(cmdline, capture_output=True, shell=True)
+    logging.info(result.stdout)
+
+    if (result.returncode == 0):
+      parent_dir = '/etc/letsencrypt/live'
+      dirs = [f for f in os.listdir(parent_dir) if os.path.isdir(os.path.join(parent_dir, f))]
+      for dir in dirs:
+        fullpath = os.path.joind(parent_dir, dir)
+        target = LETS_ENCRYPT_CERT_FILE 
+
+        cmdline = "cat {fullpath}/fullchain.pem {fullpath}/privkey.pem | tee {target}".format(**locals())
+        subprocess.run(cmdline, shell=True)
+    else:
+      logging.error(result.stderr)
+
+
+  except Exception as e:
+    logging.error("certbot exited with " + str(e))
+    if result:
+        logging.error(result.stdout)
+        logging.error(result.stderr)
+
 
 
 def restart_haproxy():
@@ -115,6 +164,25 @@ def restart_haproxy():
   time.sleep(5)
 
   #os.system("service haproxy reload")
+
+
+def write_config_and_restart():
+  tries = 0;
+  failed = True
+  while tries < 3 and failed:
+    try:
+      letsencrypt = write_config()
+      restart_haproxy()
+      if len(letsencrypt):
+          request_certificates(letsencrypt)
+          restart_haproxy()
+
+      failed = False
+    except:
+      logging.error('Could not write config, trying again')
+      failed = True
+
+    tries += 1
 
 
 class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
@@ -145,33 +213,23 @@ def start_http_server():
   httpd.serve_forever()
 
 
+  
+
 def main():
   logging.basicConfig(level=logging.INFO,
                       format='%(asctime)s - %(message)s',
                       datefmt='%Y-%m-%d %H:%M:%S')
 
   if (os.getenv('PROVIDE_DEFAULT_BACKEND')):
-
     http_thread = threading.Thread(target=start_http_server)
     http_thread.start()
 
-  write_config()
+  write_config_and_restart()
 
   for event in get_docker_client().events():
     event = json.loads(event)
     if 'status' in event and (event['status'] == 'start' or event['status'] == 'die'):
-      tries = 0;
-      failed = True
-      while tries < 3 and failed:
-        try:
-          write_config()
-          restart_haproxy()
-          failed = False
-        except:
-          logging.error('Could not write config, trying again')
-          failed = True
-
-        tries += 1
+        write_config_and_restart()
 
 if __name__ == "__main__":
     main()

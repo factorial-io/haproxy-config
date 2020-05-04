@@ -52,6 +52,10 @@ frontend http-in
     mode http
     reqadd X-Forwarded-Proto:\ http
 
+    # Test URI to see if its a letsencrypt request
+    acl letsencrypt-acl path_beg /.well-known/acme-challenge/
+    use_backend letsencrypt-backend if letsencrypt-acl
+
 {% for container in containers -%}
   {% for vhost in container.vhosts %}
     use_backend {{container.name}}_cluster if { hdr(host) -i {{vhost}} } {%if container.vpath %} { path -i -m beg {{container.vpath}} } {% endif %}
@@ -100,6 +104,9 @@ backend multibasebox_statuspage
   mode http
   server statuspage 127.0.0.1:8000
 {% endif %}
+
+backend letsencrypt-backend
+  server letsencrypt 127.0.0.1:8888
 
 listen stats
     bind *:1936
