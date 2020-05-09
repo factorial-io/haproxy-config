@@ -8,11 +8,15 @@ import time
 import json
 import jinja2
 import subprocess
+import yaml
+import datetime
 
 from http.server import HTTPServer, BaseHTTPRequestHandler
 import threading
 
 LETS_ENCRYPT_CERT_FILE = "/etc/ssl/private/letsencrypt.pem"
+HAPROXY_CONFIG_FILE = "/usr/local/etc/haproxy/haproxy.cfg"
+LETS_ENCRYPT_SETTINGS_FILE = "letsencrypt.yml"
 
 def get_docker_client():
     return docker.Client(base_url='unix://var/run/docker.sock', version='auto')
@@ -110,7 +114,7 @@ def write_config():
 
     logging.info('Writing new config')
 
-    with open('/usr/local/etc/haproxy/haproxy.cfg', 'w+') as out:
+    with open(HAPROXY_CONFIG_FILE, 'w+') as out:
       out.write(rendered)
       return letsencrypt
 
@@ -120,34 +124,67 @@ def write_config():
 
   return []
 
+def new_cert_needed(domains):
+  logging.info("Checking if new certs need to be requested for: " +", ".join(domains))
+  data = {}
+  last_check = False
+  today = datetime.date.today()
+  try:
+    with open(LETS_ENCRYPT_SETTINGS_FILE) as f:
+      data = yaml.safe_load(f)
+      last_check = data["last_check"]
+
+    if "domains" in data:
+      for domain in domains:
+        if domain not in data["domains"]:
+          return True
+
+      if last_check and (today - last_check).days < 3:
+        logging.info("No new cert is required")
+        return False
+
+  except Exception as e:
+    logging.error(e)
+
+  return True
 
 def request_certificates(domains):
+  if not new_cert_needed(domains):
+    return False
+
   logging.info("requesting letsencrypt certs for " + ", ".join(domains))
 
   mail = os.getenv("LETS_ENCRYPT_MAIL")
   if not mail:
-    raise ValueError("Environment variable LETS_ENCRYPT_MAIL is not defined!") 
+    raise ValueError("Environment variable LETS_ENCRYPT_MAIL is not defined!")
 
   domain_args = "-d " + " -d ".join(domains)
-  
+
   cmdline = "certbot certonly --dry-run --standalone --expand --non-interactive --agree-tos --email {mail} --http-01-port=8888 {domain_args}".format(**locals())
   try:
     result = False
     result = subprocess.run(cmdline, capture_output=True, shell=True)
     logging.info(result.stdout)
 
-    if (result.returncode == 0):
-      parent_dir = '/etc/letsencrypt/live'
-      dirs = [f for f in os.listdir(parent_dir) if os.path.isdir(os.path.join(parent_dir, f))]
-      for dir in dirs:
-        fullpath = os.path.joind(parent_dir, dir)
-        target = LETS_ENCRYPT_CERT_FILE 
-
-        cmdline = "cat {fullpath}/fullchain.pem {fullpath}/privkey.pem | tee {target}".format(**locals())
-        subprocess.run(cmdline, shell=True)
-    else:
+    if (result.returncode != 0):
       logging.error(result.stderr)
+      return false
 
+    parent_dir = '/etc/letsencrypt/live'
+    dirs = [f for f in os.listdir(parent_dir) if os.path.isdir(os.path.join(parent_dir, f))]
+    for dir in dirs:
+      fullpath = os.path.join(parent_dir, dir)
+      target = LETS_ENCRYPT_CERT_FILE
+
+      cmdline = "cat {fullpath}/fullchain.pem {fullpath}/privkey.pem | tee {target}".format(**locals())
+      subprocess.run(cmdline, shell=True)
+
+    data = {
+      "domains": domains,
+      "last_check": datetime.date.today()
+    }
+    with open(LETS_ENCRYPT_SETTINGS_FILE, "w+") as f:
+      yaml.dump(data, f)
 
   except Exception as e:
     logging.error("certbot exited with " + str(e))
@@ -155,6 +192,7 @@ def request_certificates(domains):
         logging.error(result.stdout)
         logging.error(result.stderr)
 
+  return True
 
 
 def restart_haproxy():
@@ -174,12 +212,12 @@ def write_config_and_restart():
       letsencrypt = write_config()
       restart_haproxy()
       if len(letsencrypt):
-          request_certificates(letsencrypt)
+        if request_certificates(letsencrypt):
           restart_haproxy()
 
       failed = False
-    except:
-      logging.error('Could not write config, trying again')
+    except Exception as e:
+      logging.error('Could not write config, trying again! Error: ' + str(e))
       failed = True
 
     tries += 1
@@ -213,7 +251,7 @@ def start_http_server():
   httpd.serve_forever()
 
 
-  
+
 
 def main():
   logging.basicConfig(level=logging.INFO,
