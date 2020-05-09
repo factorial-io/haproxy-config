@@ -160,7 +160,7 @@ def request_certificates(domains):
 
   domain_args = "-d " + " -d ".join(domains)
 
-  cmdline = "certbot certonly --dry-run --standalone --expand --non-interactive --agree-tos --email {mail} --http-01-port=8888 {domain_args}".format(**locals())
+  cmdline = "certbot certonly --standalone --expand --non-interactive --agree-tos --email {mail} --http-01-port=8888 {domain_args}".format(**locals())
   try:
     result = False
     result = subprocess.run(cmdline, capture_output=True, shell=True)
@@ -177,7 +177,7 @@ def request_certificates(domains):
       target = LETS_ENCRYPT_CERT_FILE
 
       cmdline = "cat {fullpath}/fullchain.pem {fullpath}/privkey.pem | tee {target}".format(**locals())
-      subprocess.run(cmdline, shell=True)
+      subprocess.run(cmdline, capture_output=True, shell=True)
 
     data = {
       "domains": domains,
