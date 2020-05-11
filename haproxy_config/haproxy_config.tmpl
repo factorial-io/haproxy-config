@@ -73,7 +73,7 @@ default_backend multibasebox_statuspage
 {% endif %}
 {% if certs|length > 0 %}
 frontend https-in
-    bind *:443 ssl crt {{ certs|join(' crt ') }} alpn h2,http/1.1
+    bind *:443 ssl crt {{ certs|join(' crt ') }} alpn http/1.1,h2
     mode http
     reqadd X-Forwarded-Proto:\ https
 
