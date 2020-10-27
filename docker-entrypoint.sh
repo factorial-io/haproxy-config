@@ -1,6 +1,8 @@
 #!/bin/sh
 set -e
 
+readonly RSYSLOG_PID="/var/run/rsyslogd.pid"
+
 # first arg is `-f` or `--some-option`
 if [ "${1#-}" != "$1" ]; then
 	set -- haproxy "$@"
@@ -14,8 +16,18 @@ if [ "$1" = 'haproxy' ]; then
 	set -- haproxy -W -db "$@"
 fi
 
+echo "starting rsyslogd"
+# make sure we have rsyslogd's pid file not
+# created before
+start_rsyslogd() {
+  rm -f $RSYSLOG_PID
+  rsyslogd -n &
+}
+
+start_rsyslogd
+
 echo "starting haproxy_config"
 cd /usr/local/haproxy_config/ && ./haproxy_config.py &
-sleep 3s
+sleep 5s
 
 exec "$@"
