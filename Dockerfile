@@ -14,7 +14,8 @@ RUN chmod u+w /usr/local/haproxy_config/haproxy_config.py
 COPY ./haproxy_config/rsyslog.conf /etc/rsyslog.conf
 RUN  mkdir -p /etc/rsyslog.d/				&&  \
      touch /var/log/haproxy.log				&&  \
-	 ln -sf /dev/stdout /var/log/haproxy.log
+     mkdir -p /etc/haproxy/ssl/                                &&  \
+     ln -sf /dev/stdout /var/log/haproxy.log
 
 # Create self signed certificate which will get overriden by letsencrypt.
 RUN openssl req -x509 -nodes -newkey rsa:4096 -keyout /etc/ssl/private/letsencrypt_key.pem -out /etc/ssl/private/letsencrypt_cert.pem -days 365 -subj '/CN=localhost'
