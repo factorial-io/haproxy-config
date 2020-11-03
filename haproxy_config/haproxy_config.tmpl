@@ -104,10 +104,12 @@ backend {{container.name}}_cluster
     {% if container.basic_auth %}
     acl draw-auth http_auth({{container.name}}_list)
     http-request auth realm draw unless draw-auth
-    {% endif %}
+    
     # Strange behaivor ...
     # Remove authentication header from backend
     http-request del-header Authorization
+
+    {% endif %}
     {% if container.vpath %}http-request set-uri %[url,regsub(^{{ container.vpath }},/,)] if { path_beg {{container.vpath}} }{% endif %}
   {% if container.https_only %}
     redirect scheme https if !{ ssl_fc }
