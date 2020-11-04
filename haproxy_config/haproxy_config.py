@@ -97,13 +97,13 @@ def get_config():
       port = environment.get('VIRTUAL_PORT')
     if not port:
         port = 80
-        
+
     http_auth_user = environment.get("HTTP_AUTH_USER") or ''
     http_auth_pw = environment.get("HTTP_AUTH_PASS") or ''
     http_auth_pw_type = environment.get("HTTP_AUTH_SECURE_PASSWORD") or False
-        
+
     basic_auth = {}
-    
+
     if http_auth_user and http_auth_pw :
       basic_auth['user'] =  http_auth_user
       basic_auth['password'] =  http_auth_pw
@@ -135,7 +135,7 @@ def get_config():
       'https_only': environment.get('HTTPS_ONLY'),
       'vpath': environment.get('VPATH')
     }
-    
+
     data.append(entry)
 
   return (certificates, data, letsencrypt)
@@ -171,11 +171,11 @@ def create_merged_proxy_pem_certificate():
    cmdline = "mkdir -p {target} | rm -rf {target} | mkdir -p {target} ".format(
            **locals())
    subprocess.run(cmdline, capture_output=True, shell=True)
-   
-   if not os.path.isdir(LETS_ENCRYPT_PATH): 
+
+   if not os.path.isdir(LETS_ENCRYPT_PATH):
      logger.debug('create_merged_proxy_pem_certificate: The path %s does not exist.',LETS_ENCRYPT_PATH)
      return False
-   
+
    dirs = [f for f in os.listdir(LETS_ENCRYPT_PATH) if os.path.isdir(
        os.path.join(LETS_ENCRYPT_PATH, f))]
    for dir in dirs:
@@ -189,21 +189,21 @@ def new_cert_needed(domains):
   try:
    logger.info(
        "Checking if new certs need to be requested for: " + ", ".join(domains))
-   
-   if not os.path.isdir(LETS_ENCRYPT_PATH): 
+
+   if not os.path.isdir(LETS_ENCRYPT_PATH):
      logger.debug('new_cert_needed: The path %s does not exist.',LETS_ENCRYPT_PATH)
      return True
-     
-   
+
+
    dirs = [f for f in os.listdir(LETS_ENCRYPT_PATH) if os.path.isdir(
        os.path.join(LETS_ENCRYPT_PATH, f))]
-   
+
    if len(domains) == 1:
     for dir in dirs:
       if dir == domains[0]:
         return False
-      
-         
+
+
   except Exception as e:
     logger.error(e)
     return True;
@@ -214,19 +214,19 @@ def request_certificates(domain_groups):
   mail = os.getenv("LETS_ENCRYPT_MAIL")
   if not mail:
     raise ValueError("Environment variable LETS_ENCRYPT_MAIL is not defined!")
-  
+
   for domains in domain_groups:
-    
+
    logger.info("requesting letsencrypt certs for " + ", ".join(domains))
-   
+
    if not new_cert_needed(domains):
     continue
-   
+
    domain_args = "-d " + " -d ".join(domains)
 
    cmdline = "certbot certonly --standalone --expand --non-interactive --agree-tos --email {mail} --http-01-port=8888 {domain_args}".format(
         **locals())
-   
+
    try:
      result = False
      result = subprocess.run(cmdline, capture_output=True, shell=True)
@@ -241,7 +241,7 @@ def request_certificates(domain_groups):
       if result:
           logger.error(result.stdout)
           logger.error(result.stderr)
- 
+
   create_merged_proxy_pem_certificate()
 
   return True
@@ -250,13 +250,13 @@ def check_certificate_expire_date():
   cmdline='certbot renew --dry-run'
   result = False
   result = subprocess.run(cmdline, capture_output=True, shell=True)
-  logger.debug( 'Renew result: %s', result)  
+  logger.debug( 'Renew result: %s', result)
 
 def get_all_domains_from_certificate(cert_file):
   cmdline="openssl x509 -in " + cert_file +" -text -noout |grep 'DNS:' |sed -r -e 's/DNS:/--domains /g' |sed -r -e 's/,//g')"
   result = False
   result = subprocess.run(cmdline, capture_output=True, shell=True)
-  logger.debug( 'The domains %s from %s.',cert_file,'test')  
+  logger.debug( 'The domains %s from %s.',cert_file,'test')
 
 def restart_haproxy():
   logger.info('Restarting haproxy container')
@@ -291,7 +291,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
     self.send_response(200)
     self.end_headers()
 
-    certificates, data = get_config()
+    certificates, data, letsencrypt = get_config()
 
     try:
       rendered = jinja2.Environment(
@@ -312,12 +312,12 @@ def start_http_server():
 
 def init_logger(log_level=logging.DEBUG):
     logger.setLevel(log_level)
-    
+
     sh = logging.handlers.SysLogHandler(facility=logging.handlers.SysLogHandler.LOG_LOCAL0)
     sh.setLevel(log_level)
     logFormatter = logging.Formatter("%(asctime)s [%(threadName)-12.12s] [%(levelname)-5.5s]  %(message)s")
     sh.setFormatter(logFormatter)
-    
+
     logger.addHandler(sh)
 
 def cron_job_refresh():
@@ -333,11 +333,11 @@ def cron_job_refresh():
 
 def main():
   log_level = os.getenv("LOG_LEVEL") or 'info'
-  
+
   # Start the pseudo cron worker.
   x = threading.Thread(target=cron_job_refresh, name='CronThread')
   x.start()
-  
+
   init_logger(log_level=getattr(logging, log_level.upper()))
 
   if (os.getenv('PROVIDE_DEFAULT_BACKEND')):
