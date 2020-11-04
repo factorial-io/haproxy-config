@@ -104,7 +104,7 @@ backend {{container.name}}_cluster
     {% if container.basic_auth %}
     acl draw-auth http_auth({{container.name}}_list)
     http-request auth realm draw unless draw-auth
-    
+
     # Strange behaivor ...
     # Remove authentication header from backend
     http-request del-header Authorization
