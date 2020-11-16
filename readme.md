@@ -22,7 +22,7 @@ If the environment variable `PROVIDE_DEFAULT_BACKEND` is set, then the python sc
 * `SSH` if a container exposes this environment variable, all ssh-traffic to 22 is forwarded to the container. This setting can be used only for one container.
 * `EXPOSED_NETWORK`, name of network to expose to the haproxy-config
 * `LETS_ENCRYPT`, use LetsEncrypt for SSL-certificates
-* `HTTP_AUTH_USER` and `HTTP_AUTH_PASS` protect an instance vai HTTP-Auth.
+* `HTTP_AUTH_USER` and `HTTP_AUTH_PASS` protect an instance via HTTP-Auth.
 
 **Example**
 
