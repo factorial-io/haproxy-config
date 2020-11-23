@@ -1,6 +1,7 @@
 global
-	log /dev/log	local0
-	log /dev/log	local1 notice
+	daemon
+  log  127.0.0.1       local0  debug
+	maxconn 1024
 	stats socket /run/haproxy/admin.sock mode 660 level admin
 	stats timeout 30s
 
@@ -30,6 +31,13 @@ defaults
   compression algo gzip
 	compression type text/html text/plain text/css
 
+{%- for container in containers %}
+{% if container.basic_auth %}
+userlist {{container.name}}_list
+  user {{container.basic_auth.user}} {{container.basic_auth.password_type}} {{container.basic_auth.password}}
+{% endif %}
+{%- endfor %}
+
 {% for container in containers -%}
   {% if container.ssh %}
 
@@ -50,7 +58,11 @@ frontend http-in
     bind *:80
     bind *:8080
     mode http
-    reqadd X-Forwarded-Proto:\ http
+    http-request add-header X-Forwarded-Proto  http
+
+    # Test URI to see if its a letsencrypt request
+    acl letsencrypt-acl path_beg /.well-known/acme-challenge/
+    use_backend letsencrypt-backend if letsencrypt-acl
 
 {% for container in containers -%}
   {% for vhost in container.vhosts %}
@@ -69,9 +81,9 @@ default_backend multibasebox_statuspage
 {% endif %}
 {% if certs|length > 0 %}
 frontend https-in
-    bind *:443 ssl crt {{ certs|join(' crt ') }} alpn http/1.1,h2
+    bind *:443 ssl crt /etc/haproxy/ssl/ alpn h2,http/1.1
     mode http
-    reqadd X-Forwarded-Proto:\ https
+    http-request add-header X-Forwarded-Proto  https
 
 {% for container in containers -%}
   {% for vhost in container.vhosts %}
@@ -89,6 +101,15 @@ frontend https-in
 backend {{container.name}}_cluster
     mode http
     server node1 {{container.ip}}:{{container.port}}
+    {% if container.basic_auth %}
+    acl draw-auth http_auth({{container.name}}_list)
+    http-request auth realm draw unless draw-auth
+
+    # Strange behaivor ...
+    # Remove authentication header from backend
+    http-request del-header Authorization
+
+    {% endif %}
     {% if container.vpath %}http-request set-uri %[url,regsub(^{{ container.vpath }},/,)] if { path_beg {{container.vpath}} }{% endif %}
   {% if container.https_only %}
     redirect scheme https if !{ ssl_fc }
@@ -101,6 +122,9 @@ backend multibasebox_statuspage
   server statuspage 127.0.0.1:8000
 {% endif %}
 
+backend letsencrypt-backend
+  server letsencrypt 127.0.0.1:8888
+
 listen stats
     bind *:1936
     mode http
@@ -109,3 +133,4 @@ listen stats
     stats realm Haproxy\ Statistics
     stats uri /
     stats auth haproxy:yxorpah
+
