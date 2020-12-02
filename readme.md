@@ -58,12 +58,20 @@ docker build --tag=factorial/haproxy-config .
 docker run \
   -v /var/run/docker.sock:/var/run/docker.sock \
   -v /dev/log:/dev/log \
+  -e LETS_ENCRYPT_MAIL=<your-admin-email-address> \
+  -e PROVIDE_DEFAULT_BACKEND=1 \
   -p 80:80 \
+  -p 443:443 \
   -p 1936:1936 \
   --name haproxy \
   -d \
   factorial/haproxy-config
 ```
+
+The environment variables `LETS_ENCRYPT_MAIL` and `PROVIDE_DEFAULT_BACKEND` are optional:
+
+ * `LETS_ENCRYPT_MAIL` is needed when you want to use SSL certificates from LetsEncrypt.
+ * If you set `PROVIDE_DEFAULT_BACKEND` you'll get a nice and shiny overview page when haproxy can't serve your request. This is most useful if you use haproxy-config for local development. **PLEASE DO NOT USE IN PRODUCTION**
 
 Note: if you want that haproxy handles SSL-traffic, you'll need to map the corresponding directory into the haproxy-container and listen also on port 443.
 
@@ -74,14 +82,22 @@ With version 1.1.0 docker networks are supported, Please make sure, that the hap
 ```
 docker network connect haproxy <your-network-name>
 ```
+(Obsolote since 1.3.0, but might be necessary in certain environments)
 
 ## Changelog
+
+### 1.3.0
+- Use haproxy 2.2 wich supports HTTP/2 (now working correctly)
+- haproxy will autojoin provate networks if there's a container which wants to be exposed using the environment variables
+- Add support for http-auth via `HTTP_AUTH_USER` and `HTTP_AUTH_PASSWORD`
+- supports SSL certificates from LetsEncrypt if environment variable
+- Provide a default backend listing all containers with their urls as a table (optional)
 
 ### 1.2.2
 - Use haproxy 1.9 which supports HTTP/2
 - support url-prefixe via `VPATH`
 - use `hdr(host)` instead of `hdr_dom(host)` to support domains and subdomains (e.g. example.com and docs.example.com)
--
+
 ### 1.2.1
 - add `EXPOSED_NETWORK` to expose an IP of a specific network to the haproxy config
 
