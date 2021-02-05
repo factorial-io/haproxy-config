@@ -260,8 +260,11 @@ def get_all_domains_from_certificate(cert_file):
 
 def restart_haproxy():
   logger.info('Restarting haproxy container')
-  os.system("kill -s USR2 $(pidof haproxy)")
-  time.sleep(5)
+  try:
+    os.system("kill -s USR2 $(pidof haproxy)")
+    time.sleep(5)
+  except Exception as e:
+    logger.error("Excpetion while restarting haproxy: " +str(e))
 
 def delete_certificate(domain):
   logger.info('certbot delete --cert-name example.com')
