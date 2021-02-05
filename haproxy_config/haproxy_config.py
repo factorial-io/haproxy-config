@@ -288,7 +288,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 
   def do_GET(self):
     logger.info('Handling get request')
-    self.send_response(200)
+    self.send_response(404)
     self.end_headers()
 
     certificates, data, letsencrypt = get_config()
