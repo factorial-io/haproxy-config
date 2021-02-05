@@ -88,9 +88,9 @@ docker network connect haproxy <your-network-name>
 
 ### 1.3.0
 - Use haproxy 2.2 wich supports HTTP/2 (now working correctly)
-- haproxy will autojoin provate networks if there's a container which wants to be exposed using the environment variables
-- Add support for http-auth via `HTTP_AUTH_USER` and `HTTP_AUTH_PASSWORD`
-- supports SSL certificates from LetsEncrypt if environment variable
+- haproxy will autojoin private networks if there's a container which wants to be exposed using the environment variables
+- Add support for http-auth via `HTTP_AUTH_USER` and `HTTP_AUTH_PASS`
+- supports SSL certificates from LetsEncrypt if environment variable `LETS_ENCRYPT` is set.
 - Provide a default backend listing all containers with their urls as a table (optional)
 
 ### 1.2.2
