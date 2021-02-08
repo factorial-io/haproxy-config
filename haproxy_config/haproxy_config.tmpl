@@ -97,6 +97,11 @@ frontend https-in
   {%- endfor %}
 {%- endfor %}
 {% endif %}
+
+{% if default_backend %}
+default_backend multibasebox_statuspage
+{% endif %}
+
 {% for container in containers -%}
 backend {{container.name}}_cluster
     mode http

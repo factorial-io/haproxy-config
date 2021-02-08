@@ -1,4 +1,4 @@
-FROM haproxy:2.2
+FROM haproxy:2.2.8
 
 RUN mkdir /run/haproxy
 RUN touch /run/haproxy.pid
@@ -23,5 +23,8 @@ RUN cat /etc/ssl/private/letsencrypt_cert.pem /etc/ssl/private/letsencrypt_key.p
 RUN cat /etc/ssl/private/letsencrypt_cert.pem /etc/ssl/private/letsencrypt_key.pem > /etc/haproxy/ssl/letsencrypt.pem
 
 # Replace entrypoint script
-COPY docker-entrypoint.sh /
-RUN chmod u+x /docker-entrypoint.sh
+COPY docker-entrypoint.sh /usr/local/bin/
+RUN chmod u+x /usr/local/bin/docker-entrypoint.sh
+
+ENTRYPOINT ["docker-entrypoint.sh"]
+CMD ["haproxy", "-f", "/usr/local/etc/haproxy/haproxy.cfg"]
