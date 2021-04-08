@@ -89,6 +89,10 @@ docker network connect haproxy <your-network-name>
 
 ## Changelog
 
+### 1.3.1
+
+- When using `VPATH` allow a different path to be used in the container using `VPATH_REPLACEMENT`
+
 ### 1.3.0
 - Use haproxy 2.2 wich supports HTTP/2 (now working correctly)
 - haproxy will autojoin private networks if there's a container which wants to be exposed using the environment variables
