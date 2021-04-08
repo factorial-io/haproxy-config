@@ -15,7 +15,7 @@ If the environment variable `PROVIDE_DEFAULT_BACKEND` is set, then the python sc
 
 * `VHOST`  or `VIRTUAL_HOST` the hostnames to use for this docker-container (separate multiple hostnames with a space)
 * `VPORT` or `VIRTUAL_PORT` the port to forward the http-traffic to, defaults to 80
-* `VPATH` the path to rewrite the url to; this allows you to serve multiple containers under the same domain, but with different url-prefixes. The prefixes get removed when passed to the containers, or whn `VPATH_REPLACEMENT` is set, it gets replaced with the value from `VPATH_REPLACEMENT`.
+* `VPATH` the path to filter by requests; this allows you to serve multiple containers under the same domain, but with different url-prefixes. The prefixes get removed when passed to the containers, or when `VPATH_REPLACEMENT` is set, it gets replaced with the value from `VPATH_REPLACEMENT`.
 * `VPATH_REPLACEMENT` sets the replacement path for when `VPATH` is set. This allows you to rewrite the paths completely.
 * `SSL` a path to a ssl-certificate to use for HTTPS-traffic
 * `HTTPS_ONLY` will forward traffic for port 80 to port 443 for that given VHOST.
