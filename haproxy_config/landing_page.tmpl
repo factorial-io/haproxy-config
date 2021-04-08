@@ -24,7 +24,7 @@
         <td class="border p-4">{{container.ip}}</td>
         <td class="border p-4 leading-normal">
           {% for vhost in container.vhosts %}
-            <a target="_blank" class="underline hover:text-red-600 text-blue-600 font-bold" href="http{%if container.ssl %}s{%endif%}://{{ vhost }}{%if container.vpath %}{{ container.vpath }}{%endif%}">{{ vhost }}</a> <br />
+            <a target="_blank" class="underline hover:text-red-600 text-blue-600 font-bold" href="http{%if container.ssl %}s{%endif%}://{{ vhost }}{%if container.vpath %}{{ container.vpath.path }}{%endif%}">{{ vhost }}</a> <br />
           {% endfor %}
         </td>
       </tr>

@@ -66,10 +66,10 @@ frontend http-in
 
 {% for container in containers -%}
   {% for vhost in container.vhosts %}
-    use_backend {{container.name}}_cluster if { hdr(host) -i {{vhost}} } {%if container.vpath %} { path -i -m beg {{container.vpath}} } {% endif %}
+    use_backend {{container.name}}_cluster if { hdr(host) -i {{vhost}} } {%if container.vpath %} { path -i -m beg {{container.vpath.path}} } {% endif %}
   {%- endfor %}
   {% if container.vhost_regex %}
-    use_backend {{container.name}}_cluster if { hdr_reg(host) -i {{ container.vhost_regex }} } {%if container.vpath %} { path -i -m beg {{container.vpath}} } {% endif %}
+    use_backend {{container.name}}_cluster if { hdr_reg(host) -i {{ container.vhost_regex }} } {%if container.vpath %} { path -i -m beg {{container.vpath.path}} } {% endif %}
   {% endif %}
   {% for redirect in container.redirects %}
     acl redirect_host_{{container.name}} hdr(host) -i {{redirect}}
@@ -87,10 +87,10 @@ frontend https-in
 
 {% for container in containers -%}
   {% for vhost in container.vhosts %}
-    use_backend {{container.name}}_cluster if { ssl_fc_sni {{vhost}} } {% if container.vpath %} { path -i -m beg {{container.vpath}} } {% endif %}
+    use_backend {{container.name}}_cluster if { ssl_fc_sni {{vhost}} } {% if container.vpath %} { path -i -m beg {{container.vpath.path}} } {% endif %}
   {%- endfor %}
   {% if container.vhost_regex %}
-    use_backend {{container.name}}_cluster if { ssl_fc_sni_reg {{container.vhost_regex}} } {% if container.vpath %} { path -i -m beg {{container.vpath}} } {% endif %}
+    use_backend {{container.name}}_cluster if { ssl_fc_sni_reg {{container.vhost_regex}} } {% if container.vpath %} { path -i -m beg {{container.vpath.path}} } {% endif %}
   {% endif %}
   {% for redirect in container.redirects %}
     redirect code 302 prefix https://{{container.vhosts.0}} if { hdr(host)  -i {{ redirect }} }
@@ -115,7 +115,7 @@ backend {{container.name}}_cluster
     http-request del-header Authorization
 
     {% endif %}
-    {% if container.vpath %}http-request set-uri %[url,regsub(^{{ container.vpath }},/,)] if { path_beg {{container.vpath}} }{% endif %}
+    {% if container.vpath %}http-request set-uri %[url,regsub(^{{ container.vpath.path }},{{ container.vpath.replacement }},)] if { path_beg {{container.vpath.path}} }{% endif %}
   {% if container.https_only %}
     redirect scheme https if !{ ssl_fc }
   {% endif %}

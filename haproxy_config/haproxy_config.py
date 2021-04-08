@@ -133,8 +133,12 @@ def get_config():
       'vhosts': vhosts,
       'vhost_regex': environment.get('VHOST_REGEX'),
       'https_only': environment.get('HTTPS_ONLY'),
-      'vpath': environment.get('VPATH')
     }
+    if environment.get('VPATH'):
+      entry['vpath'] = {
+        'path': environment.get('VPATH'),
+        'replacement': environment.get('VPATH_REPLACEMENT') or '',
+      }
 
     data.append(entry)
 
