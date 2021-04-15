@@ -255,6 +255,7 @@ def check_certificate_expire_date():
   result = False
   result = subprocess.run(cmdline, capture_output=True, shell=True)
   logger.debug( 'Renew result: %s', result)
+  create_merged_proxy_pem_certificate()
   restart_haproxy()
 
 def get_all_domains_from_certificate(cert_file):
