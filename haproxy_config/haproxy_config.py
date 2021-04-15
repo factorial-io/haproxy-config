@@ -251,10 +251,11 @@ def request_certificates(domain_groups):
   return True
 
 def check_certificate_expire_date():
-  cmdline='certbot renew --dry-run'
+  cmdline='certbot renew'
   result = False
   result = subprocess.run(cmdline, capture_output=True, shell=True)
   logger.debug( 'Renew result: %s', result)
+  restart_haproxy()
 
 def get_all_domains_from_certificate(cert_file):
   cmdline="openssl x509 -in " + cert_file +" -text -noout |grep 'DNS:' |sed -r -e 's/DNS:/--domains /g' |sed -r -e 's/,//g')"
