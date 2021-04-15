@@ -89,6 +89,10 @@ docker network connect haproxy <your-network-name>
 
 ## Changelog
 
+### 1.3.2
+
+- Display `VPATH` also on the landing page.
+
 ### 1.3.1
 
 - When using `VPATH` allow a different path to be used in the container using `VPATH_REPLACEMENT`
