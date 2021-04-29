@@ -1,10 +1,10 @@
-FROM haproxy:2.2.8
+FROM haproxy:2.3.10
 
 RUN mkdir /run/haproxy
 RUN touch /run/haproxy.pid
 
 #install requirements
-RUN apt-get update && apt-get install -y rsyslog whois python-virtualenv virtualenv python3-pip certbot --no-install-recommends && rm -rf /var/lib/apt/lists/* 
+RUN apt-get update && apt-get install -y rsyslog whois python-virtualenv virtualenv python3-pip certbot --no-install-recommends && rm -rf /var/lib/apt/lists/*
 
 # Install haproxy_config
 COPY ./haproxy_config /usr/local/haproxy_config
