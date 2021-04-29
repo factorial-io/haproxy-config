@@ -41,6 +41,25 @@ def get_own_docker_container_id():
   dockerclient = get_docker_client()
   return dockerclient.inspect_container(os.getenv("HOSTNAME"))['Id']
 
+def clean_up_networks():
+  dockerclient = get_docker_client()
+  own_id = get_own_docker_container_id()
+
+  logger.info('Start cleanup networks')
+  network_items = dockerclient.networks()
+
+  for networks in network_items:
+     # The network from networks has no container informations.....
+     network = dockerclient.inspect_network(networks.get('Id'))
+     logger.debug('Length of Network: {name}:: {length}'.format(
+                name=networks['Name'],length=len(network['Containers'])))
+
+     if len(network['Containers']) == 1:
+       logger.info('Container check')
+       if own_id in network['Containers']:
+          logger.info('Remove the {name} from {network_name} .'.format(
+                name=network['Containers'][own_id]['Name'], network_name=networks['Name']))
+          dockerclient.disconnect_container_from_network(own_id,networks['Id'])
 
 def get_config():
   data = []
@@ -352,12 +371,14 @@ def main():
     http_thread.start()
 
   write_config_and_restart()
+  clean_up_networks()
 
   for event in get_docker_client().events():
     event = json.loads(event)
     if 'status' in event and (event['status'] == 'start' or event['status'] == 'die'):
         logging.debug('Handle event: %s', event)
         write_config_and_restart()
+        clean_up_networks()
 
 if __name__ == "__main__":
     main()
