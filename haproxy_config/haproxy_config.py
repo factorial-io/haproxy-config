@@ -23,6 +23,7 @@ HAPROXY_CONFIG_FILE = "/usr/local/etc/haproxy/haproxy.cfg"
 LETS_ENCRYPT_PATH = "/etc/letsencrypt/live"
 
 logger = logging.getLogger()
+mutex_cert_update = threading.Lock()
 
 def get_docker_client():
     return docker.Client(base_url='unix://var/run/docker.sock', version='auto')
@@ -190,23 +191,31 @@ def write_config():
 
 def create_merged_proxy_pem_certificate():
     # Remove old entries
-   target = LETS_ENCRYPT_CERT_DIR
-   cmdline = "mkdir -p {target} | rm -rf {target} | mkdir -p {target} ".format(
+   with mutex_cert_update:
+     target = LETS_ENCRYPT_CERT_DIR
+     cmdline = "mkdir -p {target} | rm -rf {target} | mkdir -p {target} ".format(
            **locals())
-   subprocess.run(cmdline, capture_output=True, shell=True)
+     subprocess.run(cmdline, capture_output=True, shell=True)
 
-   if not os.path.isdir(LETS_ENCRYPT_PATH):
-     logger.debug('create_merged_proxy_pem_certificate: The path %s does not exist.',LETS_ENCRYPT_PATH)
-     return False
+    # Create the base certificate at least.
+     cmdline = "cat /etc/ssl/private/letsencrypt.pem | tee {target}/letsencrypt.pem".format(
+           **locals())
+     subprocess.run(cmdline, capture_output=True, shell=True)
+     
+     if not os.path.isdir(LETS_ENCRYPT_PATH):
+       logger.debug('create_merged_proxy_pem_certificate: The path %s does not exist.',LETS_ENCRYPT_PATH)
+       return False
 
-   dirs = [f for f in os.listdir(LETS_ENCRYPT_PATH) if os.path.isdir(
+     dirs = [f for f in os.listdir(LETS_ENCRYPT_PATH) if os.path.isdir(
        os.path.join(LETS_ENCRYPT_PATH, f))]
-   for dir in dirs:
+     for dir in dirs:
        fullpath = os.path.join(LETS_ENCRYPT_PATH, dir)
 
        cmdline = "cat {fullpath}/fullchain.pem {fullpath}/privkey.pem | tee {target}/{dir}.pem".format(
            **locals())
        subprocess.run(cmdline, capture_output=True, shell=True)
+
+
 
 def new_cert_needed(domains):
   try:
@@ -229,7 +238,7 @@ def new_cert_needed(domains):
 
   except Exception as e:
     logger.error(e)
-    return True;
+    return True
 
   return True
 
@@ -284,6 +293,7 @@ def get_all_domains_from_certificate(cert_file):
   logger.debug( 'The domains %s from %s.',cert_file,'test')
 
 def restart_haproxy():
+ with mutex_cert_update: 
   logger.info('Restarting haproxy container')
   try:
     os.system("kill -s USR2 $(pidof haproxy)")
