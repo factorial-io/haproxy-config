@@ -293,13 +293,13 @@ def get_all_domains_from_certificate(cert_file):
   logger.debug( 'The domains %s from %s.',cert_file,'test')
 
 def restart_haproxy():
- with mutex_cert_update: 
-  logger.info('Restarting haproxy container')
-  try:
-    os.system("kill -s USR2 $(pidof haproxy)")
-    time.sleep(5)
-  except Exception as e:
-    logger.error("Excpetion while restarting haproxy: " +str(e))
+  with mutex_cert_update: 
+    logger.info('Restarting haproxy container')
+    try:
+      os.system("kill -s USR2 $(pidof haproxy)")
+      time.sleep(5)
+    except Exception as e:
+      logger.error("Excpetion while restarting haproxy: " +str(e))
 
 def delete_certificate(domain):
   logger.info('certbot delete --cert-name example.com')
