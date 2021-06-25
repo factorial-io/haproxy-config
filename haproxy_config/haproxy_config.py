@@ -56,13 +56,21 @@ def clean_up_networks():
                 name=networks['Name'],length=len(network['Containers'])))
 
      if len(network['Containers']) == 1:
+       
        logger.info('Container check')
-       if own_id in network['Containers']:
-          logger.info('Remove the {name} from {network_name} .'.format(
+       # Keep haproxy in the bridge network.
+       if networks['Name'] != "bridge" and own_id in network['Containers']:
+          logger.info('Remove the {name} from {network_name}.'.format(
                 name=network['Containers'][own_id]['Name'], network_name=networks['Name']))
           dockerclient.disconnect_container_from_network(own_id,networks['Id'])
 
+def get_ssl_mode():
+  return os.getenv("SSL_MODE") or 'LETS_ENCRYPT'
+
 def get_config():
+
+  ssl_mode =  get_ssl_mode()
+
   data = []
   certificates = {}
   letsencrypt = []
@@ -101,10 +109,6 @@ def get_config():
     if not vhost:
       vhost = environment.get('VIRTUAL_HOST')
 
-    ssl = environment.get("SSL")
-    if ssl:
-      certificates[ssl] = ssl
-
     redirects = environment.get("REDIRECT_FROM")
     if redirects:
       redirects = redirects.split(' ')
@@ -134,20 +138,18 @@ def get_config():
 
     vhosts = vhost.split(' ')
 
-    logger.info('found {name} with ip {ip}, using {vhost}:{port} as hostname.'.format(
-        name=name, ip=ip, vhost=vhost, port=port))
+    logger.info('found {name} with ip {ip}, using {vhost}:{port} as hostname.'.format(name=name, ip=ip, vhost=vhost, port=port))
 
-    if environment.get("LETS_ENCRYPT"):
-        certificates[LETS_ENCRYPT_CERT_FILE] = LETS_ENCRYPT_CERT_FILE
-        for vhost in vhosts:
-            letsencrypt.append([vhost])
+    if ssl_mode == "LETS_ENCRYPT":
+      for vhost in vhosts:
+        logger.info('Use letsencrypt for domain {vhost}.'.format(vhost=vhost))
+        letsencrypt.append([vhost])
 
     entry = {
       'name': name,
       'ip': ip,
       'ssh': ssh,
       'port': port,
-      'ssl': ssl,
       'redirects': redirects or [],
       'basic_auth': basic_auth or {},
       'vhosts': vhosts,
@@ -162,19 +164,19 @@ def get_config():
 
     data.append(entry)
 
-  return (certificates, data, letsencrypt)
+  return (data, letsencrypt)
 
 
 def write_config():
 
-  certificates, data, letsencrypt = get_config()
+  data, letsencrypt = get_config()
   try:
     rendered = jinja2.Environment(
           loader=jinja2.FileSystemLoader('./')
     ).get_template('haproxy_config.tmpl').render({
       'containers': data,
-      'certs': certificates.values(),
-      'default_backend': os.getenv('PROVIDE_DEFAULT_BACKEND')
+      'default_backend': os.getenv('PROVIDE_DEFAULT_BACKEND'),
+      'ssl_mode': get_ssl_mode()
     })
 
     logger.info('Writing new config')
@@ -193,13 +195,11 @@ def create_merged_proxy_pem_certificate():
     # Remove old entries
    with mutex_cert_update:
      target = LETS_ENCRYPT_CERT_DIR
-     cmdline = "mkdir -p {target} | rm -rf {target} | mkdir -p {target} ".format(
-           **locals())
+     cmdline = "mkdir -p {target} | rm -rf {target}/le--*.pem | mkdir -p {target} ".format(**locals())
      subprocess.run(cmdline, capture_output=True, shell=True)
 
-    # Create the base certificate at least.
-     cmdline = "cat /etc/ssl/private/letsencrypt.pem | tee {target}/letsencrypt.pem".format(
-           **locals())
+     # Create the base certificate at least.
+     cmdline = "cat /etc/ssl/private/letsencrypt.pem | tee {target}/le--letsencrypt.pem".format(**locals())
      subprocess.run(cmdline, capture_output=True, shell=True)
      
      if not os.path.isdir(LETS_ENCRYPT_PATH):
@@ -211,8 +211,9 @@ def create_merged_proxy_pem_certificate():
      for dir in dirs:
        fullpath = os.path.join(LETS_ENCRYPT_PATH, dir)
 
-       cmdline = "cat {fullpath}/fullchain.pem {fullpath}/privkey.pem | tee {target}/{dir}.pem".format(
-           **locals())
+       logger.info("Copying cert into haproxies ssl dir: {target}/{dir}".format(**locals()))
+
+       cmdline = "cat {fullpath}/fullchain.pem {fullpath}/privkey.pem | tee {target}/le--{dir}.pem".format(**locals())
        subprocess.run(cmdline, capture_output=True, shell=True)
 
 
@@ -249,26 +250,25 @@ def request_certificates(domain_groups):
 
   for domains in domain_groups:
 
-   logger.info("requesting letsencrypt certs for " + ", ".join(domains))
+    logger.info("requesting letsencrypt certs for " + ", ".join(domains))
 
-   if not new_cert_needed(domains):
-    continue
+    if not new_cert_needed(domains):
+      continue
 
-   domain_args = "-d " + " -d ".join(domains)
+    domain_args = "-d " + " -d ".join(domains)
 
-   cmdline = "certbot certonly --standalone --expand --non-interactive --agree-tos --email {mail} --http-01-port=8888 {domain_args}".format(
-        **locals())
+    cmdline = "certbot certonly --standalone --expand --non-interactive --agree-tos --email {mail} --http-01-port=8888 {domain_args}".format(**locals())
 
-   try:
-     result = False
-     result = subprocess.run(cmdline, capture_output=True, shell=True)
-     logger.info(result.stdout)
+    try:
+      result = False
+      result = subprocess.run(cmdline, capture_output=True, shell=True)
+      logger.info(result.stdout)
 
-     if (result.returncode != 0):
+      if (result.returncode != 0):
         logger.error(result.stderr)
         return False
 
-   except Exception as e:
+    except Exception as e:
       logger.error("certbot exited with " + str(e))
       if result:
           logger.error(result.stdout)
@@ -316,6 +316,7 @@ def write_config_and_restart():
           restart_haproxy()
 
       failed = False
+
     except Exception as e:
       logger.error('Could not write config, trying again! Error: ' + str(e))
       failed = True
@@ -367,14 +368,15 @@ def cron_job_refresh():
     except Exception as e:
       logger.error("Excpetion while handling request: " +str(e))
     # 10 days.
-    time.sleep(86400*10)
+    time.sleep(10 * 24 * 60 * 60)
 
 def main():
   log_level = os.getenv("LOG_LEVEL") or 'info'
 
   # Start the pseudo cron worker.
-  x = threading.Thread(target=cron_job_refresh, name='CronThread')
-  x.start()
+  if get_ssl_mode() == 'LETS_ENCRYPT':
+      x = threading.Thread(target=cron_job_refresh, name='CronThread')
+      x.start()
 
   init_logger(log_level=getattr(logging, log_level.upper()))
 

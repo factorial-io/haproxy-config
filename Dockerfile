@@ -20,7 +20,7 @@ RUN  mkdir -p /etc/rsyslog.d/				&&  \
 # Create self signed certificate which will get overriden by letsencrypt.
 RUN openssl req -x509 -nodes -newkey rsa:4096 -keyout /etc/ssl/private/letsencrypt_key.pem -out /etc/ssl/private/letsencrypt_cert.pem -days 365 -subj '/CN=localhost'
 RUN cat /etc/ssl/private/letsencrypt_cert.pem /etc/ssl/private/letsencrypt_key.pem > /etc/ssl/private/letsencrypt.pem
-RUN cat /etc/ssl/private/letsencrypt_cert.pem /etc/ssl/private/letsencrypt_key.pem > /etc/haproxy/ssl/letsencrypt.pem
+RUN cat /etc/ssl/private/letsencrypt_cert.pem /etc/ssl/private/letsencrypt_key.pem > /etc/haproxy/ssl/le--letsencrypt.pem
 
 # Replace entrypoint script
 COPY docker-entrypoint.sh /usr/local/bin/
