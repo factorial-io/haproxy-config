@@ -6,7 +6,9 @@ name: CI
 on:
   # Triggers the workflow on push or pull request events but only for the main branch
   push:
-    branches: [ main ]
+    branches: 
+      - main
+      - refactor-ssl-handling
 
 # A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
@@ -16,6 +18,10 @@ jobs:
       -
         name: Checkout
         uses: actions/checkout@v2
+      -
+        name: Set env
+        run: echo "TAG_NAME=$(echo ${GITHUB_REF#refs/heads/} | sed -r 's#/+#-#g')" >> $GITHUB_ENV
+        
       -
         name: Set up QEMU
         uses: docker/setup-qemu-action@v1
@@ -35,4 +41,4 @@ jobs:
           context: .
           platforms: linux/amd64,linux/arm64
           push: true
-          tags: factorial/haproxy-config:latest
+          tags: factorial/haproxy-config:${{ env.TAG_NAME }}
