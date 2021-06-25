@@ -17,11 +17,9 @@ If the environment variable `PROVIDE_DEFAULT_BACKEND` is set, then the python sc
 * `VPORT` or `VIRTUAL_PORT` the port to forward the http-traffic to, defaults to 80
 * `VPATH` the path to filter by requests; this allows you to serve multiple containers under the same domain, but with different url-prefixes. The prefixes get removed when passed to the containers, or when `VPATH_REPLACEMENT` is set, it gets replaced with the value from `VPATH_REPLACEMENT`.
 * `VPATH_REPLACEMENT` sets the replacement path for when `VPATH` is set. This allows you to rewrite the paths completely.
-* `SSL` a path to a ssl-certificate to use for HTTPS-traffic
 * `HTTPS_ONLY` will forward traffic for port 80 to port 443 for that given VHOST.
 * `REDIRECT_FROM` redirect from a given hostname. (Separate multiple hostnames with a space)
 * `SSH` if a container exposes this environment variable, all ssh-traffic to 22 is forwarded to the container. This setting can be used only for one container.
-* `EXPOSED_NETWORK`, name of network to expose to the haproxy-config
 * `HTTP_AUTH_USER` and `HTTP_AUTH_PASS` protect an instance via HTTP-Auth.
 
 **Example**
@@ -34,7 +32,6 @@ docker run \
   -e VPORT=8888 \
   -e VPATH=/foo \
   -e VPATH_REPLACEMENT=/bar \
-  -e SSL=/etc/ssl/private/mycert.pem \
   -e HTTPS_ONLY=1 \
   -e REDIRECT_FROM=old.domain.tld superold.domain.tld\
   mydocker
@@ -45,7 +42,7 @@ This will instruct haproxy forward all http and https traffic for `my.domain.tld
 ## Pull the container via
 
 ```
-docker pull factorial/haproxy-config
+docker pull factorial/haproxy-config:<VERSION>
 ```
 
 ## Build the container locally
@@ -66,6 +63,7 @@ docker run \
   -p 80:80 \
   -p 443:443 \
   -p 1936:1936 \
+  --privileged \
   --name haproxy \
   -d \
   factorial/haproxy-config
