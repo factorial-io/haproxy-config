@@ -330,7 +330,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
     self.send_response(404)
     self.end_headers()
 
-    certificates, data, letsencrypt = get_config()
+    data, letsencrypt = get_config()
 
     try:
       rendered = jinja2.Environment(
