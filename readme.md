@@ -71,7 +71,7 @@ docker run \
 
 The environment variables `SSL_MODE`, `LETS_ENCRYPT_MAIL` and `PROVIDE_DEFAULT_BACKEND` are optional:
 
- * if `SSL_MODE` is set to `LETS_ENCRYPT` then for every domain a letsencrypt certificate will be created. If you want to use your own certificats. Set `SSL_MODE` to `CUSTOM` and map your certificates via a volume-mount to `/etc/haproxy/ssl`. Disable SSL by setting `SSL_MODE` to `NONE`. The default value is `LETS_ENCRYPT`
+ * if `SSL_MODE` is set to `LETS_ENCRYPT` then for every domain a letsencrypt certificate will be created. If you want to use your own certificates, set `SSL_MODE` to `CUSTOM` and map your certificates via a volume-mount to `/etc/haproxy/ssl`. Disable SSL by setting `SSL_MODE` to `NONE`. The default value is `LETS_ENCRYPT`
  * `LETS_ENCRYPT_MAIL` is needed when you want to use SSL certificates from LetsEncrypt.
  * If you set `PROVIDE_DEFAULT_BACKEND` you'll get a nice and shiny overview page when haproxy can't serve your request. This is most useful if you use haproxy-config for local development. **PLEASE DO NOT USE IN PRODUCTION**
 
