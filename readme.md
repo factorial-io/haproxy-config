@@ -57,7 +57,7 @@ docker build --tag=factorial/haproxy-config .
 docker run \
   -v /var/run/docker.sock:/var/run/docker.sock \
   -v /dev/log:/dev/log \
-  -e SSL_MODE=CUSTOM|LETS_ENCRYPT|NONE
+  -e SSL_MODE=CUSTOM|LETS_ENCRYPT|NONE \
   -e LETS_ENCRYPT_MAIL=<your-admin-email-address> \
   -e PROVIDE_DEFAULT_BACKEND=1 \
   -p 80:80 \
