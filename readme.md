@@ -17,12 +17,9 @@ If the environment variable `PROVIDE_DEFAULT_BACKEND` is set, then the python sc
 * `VPORT` or `VIRTUAL_PORT` the port to forward the http-traffic to, defaults to 80
 * `VPATH` the path to filter by requests; this allows you to serve multiple containers under the same domain, but with different url-prefixes. The prefixes get removed when passed to the containers, or when `VPATH_REPLACEMENT` is set, it gets replaced with the value from `VPATH_REPLACEMENT`.
 * `VPATH_REPLACEMENT` sets the replacement path for when `VPATH` is set. This allows you to rewrite the paths completely.
-* `SSL` a path to a ssl-certificate to use for HTTPS-traffic
 * `HTTPS_ONLY` will forward traffic for port 80 to port 443 for that given VHOST.
 * `REDIRECT_FROM` redirect from a given hostname. (Separate multiple hostnames with a space)
 * `SSH` if a container exposes this environment variable, all ssh-traffic to 22 is forwarded to the container. This setting can be used only for one container.
-* `EXPOSED_NETWORK`, name of network to expose to the haproxy-config
-* `LETS_ENCRYPT`, use LetsEncrypt for SSL-certificates
 * `HTTP_AUTH_USER` and `HTTP_AUTH_PASS` protect an instance via HTTP-Auth.
 
 **Example**
@@ -35,7 +32,6 @@ docker run \
   -e VPORT=8888 \
   -e VPATH=/foo \
   -e VPATH_REPLACEMENT=/bar \
-  -e SSL=/etc/ssl/private/mycert.pem \
   -e HTTPS_ONLY=1 \
   -e REDIRECT_FROM=old.domain.tld superold.domain.tld\
   mydocker
@@ -46,7 +42,7 @@ This will instruct haproxy forward all http and https traffic for `my.domain.tld
 ## Pull the container via
 
 ```
-docker pull factorial/haproxy-config
+docker pull factorial/haproxy-config:<VERSION>
 ```
 
 ## Build the container locally
@@ -61,18 +57,21 @@ docker build --tag=factorial/haproxy-config .
 docker run \
   -v /var/run/docker.sock:/var/run/docker.sock \
   -v /dev/log:/dev/log \
+  -e SSL_MODE=CUSTOM|LETS_ENCRYPT|NONE \
   -e LETS_ENCRYPT_MAIL=<your-admin-email-address> \
   -e PROVIDE_DEFAULT_BACKEND=1 \
   -p 80:80 \
   -p 443:443 \
   -p 1936:1936 \
+  --privileged \
   --name haproxy \
   -d \
   factorial/haproxy-config
 ```
 
-The environment variables `LETS_ENCRYPT_MAIL` and `PROVIDE_DEFAULT_BACKEND` are optional:
+The environment variables `SSL_MODE`, `LETS_ENCRYPT_MAIL` and `PROVIDE_DEFAULT_BACKEND` are optional:
 
+ * if `SSL_MODE` is set to `LETS_ENCRYPT` then for every domain a letsencrypt certificate will be created. If you want to use your own certificates, set `SSL_MODE` to `CUSTOM` and map your certificates via a volume-mount to `/etc/haproxy/ssl`. Disable SSL by setting `SSL_MODE` to `NONE`. The default value is `LETS_ENCRYPT`
  * `LETS_ENCRYPT_MAIL` is needed when you want to use SSL certificates from LetsEncrypt.
  * If you set `PROVIDE_DEFAULT_BACKEND` you'll get a nice and shiny overview page when haproxy can't serve your request. This is most useful if you use haproxy-config for local development. **PLEASE DO NOT USE IN PRODUCTION**
 
@@ -88,6 +87,14 @@ docker network connect haproxy <your-network-name>
 (Obsolote since 1.3.0, but might be necessary in certain environments)
 
 ## Changelog
+
+### 1.4.0
+
+- Rework SSL-handling and fix various bugs with it. haproxy-config can either handle SSL-connections with custom scertificates, or will use letsencrypt for certificate-handling. See the docs for the evironment variable `SSL_MODE`
+- Haproxy will leave private networks if it is the only container participating in that network
+- letsencrypt certificates get renwed automatically now
+- ssl, specifically letsencrypt is enabled by default
+- various bug fixes
 
 ### 1.3.2
 
