@@ -88,7 +88,7 @@ docker network connect haproxy <your-network-name>
 
 ## Changelog
 
-### 1.4.0
+### 2.0.0
 
 - Rework SSL-handling and fix various bugs with it. haproxy-config can either handle SSL-connections with custom scertificates, or will use letsencrypt for certificate-handling. See the docs for the evironment variable `SSL_MODE`
 - Haproxy will leave private networks if it is the only container participating in that network
