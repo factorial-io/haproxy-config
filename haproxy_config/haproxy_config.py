@@ -276,7 +276,6 @@ def request_certificates(domain_groups):
 
       if (result.returncode != 0):
         logger.error(result.stderr)
-        return False
 
     except Exception as e:
       logger.error("certbot exited with " + str(e))
