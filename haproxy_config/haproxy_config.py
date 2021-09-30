@@ -56,13 +56,18 @@ def clean_up_networks():
                 name=networks['Name'],length=len(network['Containers'])))
 
      if len(network['Containers']) == 1:
-       
+
        logger.info('Container check')
        # Keep haproxy in the bridge network.
        if networks['Name'] != "bridge" and own_id in network['Containers']:
           logger.info('Remove the {name} from {network_name}.'.format(
                 name=network['Containers'][own_id]['Name'], network_name=networks['Name']))
-          dockerclient.disconnect_container_from_network(own_id,networks['Id'])
+          try:
+            dockerclient.disconnect_container_from_network(own_id,networks['Id'])
+          except Exception as e:
+            logger.error("Exception while disconnecting haproxy to network: " + str(e))
+            logger.error(e)
+
 
 def get_ssl_mode():
   return os.getenv("SSL_MODE") or 'LETS_ENCRYPT'
@@ -102,7 +107,12 @@ def get_config():
         if not ip or exposed_network == network_name:
           own_docker_id = get_own_docker_container_id()
           if not check_if_already_connected(own_docker_id,network['NetworkID']) :
-            dockerclient.connect_container_to_network(own_docker_id,network['NetworkID'])
+            try:
+              dockerclient.connect_container_to_network(own_docker_id,network['NetworkID'])
+            except Exception as e:
+              logger.error("Exception while connecting haproxy to network: " + str(e))
+              logger.error(e)
+
           ip = network["IPAddress"]
 
     vhost = environment.get("VHOST")
@@ -201,7 +211,7 @@ def create_merged_proxy_pem_certificate():
      # Create the base certificate at least.
      cmdline = "cat /etc/ssl/private/letsencrypt.pem | tee {target}/le--letsencrypt.pem".format(**locals())
      subprocess.run(cmdline, capture_output=True, shell=True)
-     
+
      if not os.path.isdir(LETS_ENCRYPT_PATH):
        logger.debug('create_merged_proxy_pem_certificate: The path %s does not exist.',LETS_ENCRYPT_PATH)
        return False
@@ -266,7 +276,6 @@ def request_certificates(domain_groups):
 
       if (result.returncode != 0):
         logger.error(result.stderr)
-        return False
 
     except Exception as e:
       logger.error("certbot exited with " + str(e))
@@ -293,7 +302,7 @@ def get_all_domains_from_certificate(cert_file):
   logger.debug( 'The domains %s from %s.',cert_file,'test')
 
 def restart_haproxy():
-  with mutex_cert_update: 
+  with mutex_cert_update:
     logger.info('Restarting haproxy container')
     try:
       os.system("kill -s USR2 $(pidof haproxy)")
