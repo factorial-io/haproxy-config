@@ -86,9 +86,6 @@ frontend https-in
     http-request add-header X-Forwarded-Proto  https
 
 {% for container in containers -%}
-  {% if container.x_robots_tag  -%}
-    http-request add-header X-Forwarded-Proto  {{ container.x_robots_tag }}
-  {% endif %}
 
   {% for vhost in container.vhosts %}
     use_backend {{container.name}}_cluster if { ssl_fc_sni {{vhost}} } {% if container.vpath %} { path -i -m beg {{container.vpath.path}} } {% endif %}
@@ -108,12 +105,15 @@ default_backend multibasebox_statuspage
 {% for container in containers -%}
 backend {{container.name}}_cluster
     mode http
+    {% if container.x_robots_tag  %}
+    http-response add-header X-Robots-Tag "{{ container.x_robots_tag }}"
+    {% endif %}
     server node1 {{container.ip}}:{{container.port}}
     {% if container.basic_auth %}
     acl draw-auth http_auth({{container.name}}_list)
     http-request auth realm draw unless draw-auth
 
-    # Strange behaivor ...
+    # Strange behavior ...
     # Remove authentication header from backend
     http-request del-header Authorization
 
@@ -141,3 +141,7 @@ listen stats
     stats realm Haproxy\ Statistics
     stats uri /
     stats auth haproxy:yxorpah
+
+# end of file
+
+

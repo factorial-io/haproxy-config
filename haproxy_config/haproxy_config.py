@@ -26,7 +26,7 @@ logger = logging.getLogger()
 mutex_cert_update = threading.Lock()
 
 def get_docker_client():
-    return docker.Client(base_url='unix://var/run/docker.sock', version='auto')
+    return docker.from_env()
 
 def check_if_already_connected(container_id, network_id) :
   dockerclient = get_docker_client()

@@ -1,3 +1,4 @@
+urllib3<2
 docker-py
 jinja2
 pyyaml
