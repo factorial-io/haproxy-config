@@ -86,6 +86,10 @@ frontend https-in
     http-request add-header X-Forwarded-Proto  https
 
 {% for container in containers -%}
+  {% if container.x_robots_tag  -%}
+    http-request add-header X-Forwarded-Proto  {{ container.x_robots_tag }}
+  {% endif %}
+
   {% for vhost in container.vhosts %}
     use_backend {{container.name}}_cluster if { ssl_fc_sni {{vhost}} } {% if container.vpath %} { path -i -m beg {{container.vpath.path}} } {% endif %}
   {%- endfor %}
@@ -137,4 +141,3 @@ listen stats
     stats realm Haproxy\ Statistics
     stats uri /
     stats auth haproxy:yxorpah
-

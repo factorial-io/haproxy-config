@@ -72,6 +72,9 @@ def clean_up_networks():
 def get_ssl_mode():
   return os.getenv("SSL_MODE") or 'LETS_ENCRYPT'
 
+def get_x_robots_default():
+  return os.getenv("X_ROBOTS_TAG") or 'noindex';
+
 def get_config():
 
   ssl_mode =  get_ssl_mode()
@@ -165,7 +168,9 @@ def get_config():
       'vhosts': vhosts,
       'vhost_regex': environment.get('VHOST_REGEX'),
       'https_only': environment.get('HTTPS_ONLY'),
+      'x_robots_tag': environment.get('X_ROBOTS_TAG') or get_x_robots_default()
     }
+
     if environment.get('VPATH'):
       entry['vpath'] = {
         'path': environment.get('VPATH'),

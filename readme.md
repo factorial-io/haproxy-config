@@ -21,6 +21,7 @@ If the environment variable `PROVIDE_DEFAULT_BACKEND` is set, then the python sc
 * `REDIRECT_FROM` redirect from a given hostname. (Separate multiple hostnames with a space)
 * `SSH` if a container exposes this environment variable, all ssh-traffic to 22 is forwarded to the container. This setting can be used only for one container.
 * `HTTP_AUTH_USER` and `HTTP_AUTH_PASS` protect an instance via HTTP-Auth.
+* `X_ROBOTS_TAG` set the x-robots-tag header per container or as a default, more info [here](https://developers.google.com/search/docs/crawling-indexing/robots-meta-tag)
 
 **Example**
 
@@ -60,6 +61,7 @@ docker run \
   -e SSL_MODE=CUSTOM|LETS_ENCRYPT|NONE \
   -e LETS_ENCRYPT_MAIL=<your-admin-email-address> \
   -e PROVIDE_DEFAULT_BACKEND=1 \
+  -e X_ROBOTS_TAG=noindex \
   -p 80:80 \
   -p 443:443 \
   -p 1936:1936 \
@@ -74,6 +76,7 @@ The environment variables `SSL_MODE`, `LETS_ENCRYPT_MAIL` and `PROVIDE_DEFAULT_B
  * if `SSL_MODE` is set to `LETS_ENCRYPT` then for every domain a letsencrypt certificate will be created. If you want to use your own certificates, set `SSL_MODE` to `CUSTOM` and map your certificates via a volume-mount to `/etc/haproxy/ssl`. Disable SSL by setting `SSL_MODE` to `NONE`. The default value is `LETS_ENCRYPT`
  * `LETS_ENCRYPT_MAIL` is needed when you want to use SSL certificates from LetsEncrypt.
  * If you set `PROVIDE_DEFAULT_BACKEND` you'll get a nice and shiny overview page when haproxy can't serve your request. This is most useful if you use haproxy-config for local development. **PLEASE DO NOT USE IN PRODUCTION**
+ * `X_ROBOTS_TAG` set the default x-robots-tag, more info [here](https://developers.google.com/search/docs/crawling-indexing/robots-meta-tag)
 
 Note: if you want that haproxy handles SSL-traffic, you'll need to map the corresponding directory into the haproxy-container and listen also on port 443.
 
