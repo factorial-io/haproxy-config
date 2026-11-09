@@ -1,3 +1,6 @@
 docker-py
 jinja2
 pyyaml
+# ponytail: docker-py 1.10 breaks with urllib3 2.x / requests 2.32 (chunked kwarg); drop pins when moving to the `docker` SDK.
+requests<2.32
+urllib3<2
