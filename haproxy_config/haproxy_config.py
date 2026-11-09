@@ -398,7 +398,9 @@ def main():
 
   for event in get_docker_client().events():
     event = json.loads(event)
-    if 'status' in event and (event['status'] == 'start' or event['status'] == 'die'):
+    # Docker >= 29 dropped the deprecated `status` field; `Action` carries it now.
+    action = event.get('status') or event.get('Action')
+    if event.get('Type', 'container') == 'container' and action in ('start', 'die'):
         logging.debug('Handle event: %s', event)
         write_config_and_restart()
         clean_up_networks()
